@@ -1,0 +1,168 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Meu companheiro</title><style>
+:root{--bg:#f4f1ea;--card:#fff;--ink:#23211c;--soft:#6f6a60;--ac:#4a9e8f;--line:#e2ddd2}
+*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+h1{font-size:20px;margin:0 0 2px}h2{font-size:13px;margin:0 0 10px;color:var(--soft);text-transform:uppercase;letter-spacing:.06em}
+.sub{color:var(--soft);font-size:13px;margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:14px}
+.pet{display:flex;align-items:center;gap:14px}
+.pet .big{font-size:36px}.pet b{font-size:17px}.pet small{display:block;color:var(--soft)}
+.bar{height:7px;background:var(--line);border-radius:99px;overflow:hidden;margin-top:8px}
+.bar i{display:block;height:100%;background:var(--ac);transition:width .4s}
+.timer{font:600 34px/1 ui-monospace,monospace;text-align:center;letter-spacing:.02em}
+.tstate{text-align:center;color:var(--soft);font-size:13px;margin-top:6px}
+.btns{display:flex;gap:8px;margin-top:14px}
+.btns button{flex:1;padding:11px;border:1px solid var(--line);background:#fff;border-radius:10px;font:inherit;cursor:pointer}
+.btns button.pri{background:var(--ac);border-color:var(--ac);color:#fff;font-weight:600}
+.task{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.task:last-child{border:0}
+.task .box{width:20px;height:20px;border:2px solid var(--line);border-radius:6px;flex:0 0 auto;display:grid;place-items:center;font-size:12px}
+.task.done .box{background:var(--ac);border-color:var(--ac);color:#fff}
+.task.done span:last-child{opacity:.45;text-decoration:line-through}
+.blk{font-size:12px;color:var(--soft);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 4px}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{border:1.5px solid var(--line);background:#fff;border-radius:10px;padding:9px 13px;cursor:pointer;font:inherit}
+.opt.sel{border-color:var(--ac);background:#eef7f5;font-weight:600}
+label{display:block;font-size:13px;color:var(--soft);margin:12px 0 4px}
+input[type=range]{width:100%}.val{font-weight:600;color:var(--ink)}
+.note{background:#fbf6e8;border:1px solid #ecdcb4;border-radius:10px;padding:11px 13px;font-size:13px;color:#6b5a2e}
+button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:14px}
+.ok{color:var(--ac);font-size:13px;text-align:center;margin-top:8px;min-height:18px}
+</style></head><body>
+
+<p class="sub" id="greeting" style="margin-bottom:2px">Oi!</p>
+<h1 id="petName">Carregando…</h1>
+<p class="sub">Esta página é sua. Aqui você escolhe como quer usar.</p>
+
+<div class="card pet">
+  <div class="big" id="petIcon">🥚</div>
+  <div style="flex:1">
+    <b id="petStage">—</b><small id="petPts">—</small>
+    <div class="bar"><i id="petBar" style="width:0%"></i></div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Pomodoro</h2>
+  <div class="timer" id="timer">--:--</div>
+  <div class="tstate" id="tstate">parado</div>
+  <div class="btns">
+    <button class="pri" id="bStart">Começar</button>
+    <button id="bPause">Pausar</button>
+    <button id="bStop">Parar</button>
+  </div>
+</div>
+
+<div class="card">
+  <h2>Meu companheiro</h2>
+  <div class="opts" id="species"></div>
+</div>
+
+<div class="card">
+  <h2>Minha rotina de hoje</h2>
+  <div id="routine">Carregando…</div>
+</div>
+
+<div class="card">
+  <h2>Meus ajustes</h2>
+  <label>Tempo de foco: <span class="val" id="vStudy">–</span> min</label>
+  <input type="range" id="study" step="5">
+  <label>Tempo de pausa: <span class="val" id="vBreak">–</span> min</label>
+  <input type="range" id="brk" step="1">
+  <label>Brilho da tela: <span class="val" id="vBright">–</span>%</label>
+  <input type="range" id="bright" min="10" max="100" step="5">
+  <label>Volume: <span class="val" id="vVol">–</span>%</label>
+  <input type="range" id="vol" min="0" max="100" step="5">
+  <button class="save" id="save">Salvar</button>
+  <div class="ok" id="okMsg"></div>
+</div>
+
+<div class="card">
+  <h2>Aviso pros seus pais</h2>
+  <div class="note" id="alertNote">Carregando…</div>
+</div>
+
+<script>
+const ICON={Ovo:"🥚",Filhote:"🐣",Jovem:"🧒",Forte:"🌟"};
+const $=s=>document.querySelector(s);
+const get=u=>fetch(u).then(r=>r.json());
+const post=(u,d)=>fetch(u,{method:"POST",body:JSON.stringify(d)}).then(r=>r.json());
+const pad=n=>String(n).padStart(2,"0");
+
+async function loadPet(){
+  const p=await get("/api/pet");
+  $("#petName").textContent=p.nome;
+  $("#petStage").textContent=p.estagio;
+  $("#petIcon").textContent=ICON[p.estagio]||"🥚";
+  $("#petPts").textContent=p.pontos+" pontos • "+p.hoje+"/"+p.teto+" hoje";
+  const pct=p.proximo_estagio?Math.min(100,p.pontos/p.proximo_estagio*100):100;
+  $("#petBar").style.width=pct+"%";
+
+  const el=$("#species");el.innerHTML="";
+  (p.catalogo||[]).forEach(c=>{
+    const b=document.createElement("button");
+    b.className="opt"+(c.id===p.especie?" sel":"");
+    b.textContent=c.nome+" · "+c.especie;
+    b.onclick=async()=>{await post("/api/pet/choose",{id:c.id});loadPet()};
+    el.appendChild(b);
+  });
+}
+
+async function loadRoutine(){
+  const r=await get("/api/routine/today");
+  const el=$("#routine");el.innerHTML="";
+  if(!r.blocks||!r.blocks.length){el.textContent="Nada por hoje.";return}
+  r.blocks.forEach(b=>{
+    const h=document.createElement("div");h.className="blk";h.textContent=b.name;el.appendChild(h);
+    b.tasks.forEach(t=>{
+      const d=document.createElement("div");
+      d.className="task"+(t.done?" done":"");
+      d.innerHTML='<span class="box">'+(t.done?"✓":"")+'</span><span>'+t.label+'</span>';
+      if(!t.done)d.onclick=async()=>{await post("/api/routine/done",{id:t.id});loadRoutine();loadPet()};
+      el.appendChild(d);
+    });
+  });
+}
+
+async function loadPomodoro(){
+  const p=await get("/api/pomodoro");
+  const s=p.restante_s||0;
+  $("#timer").textContent=s?pad(Math.floor(s/60))+":"+pad(s%60):"--:--";
+  $("#tstate").textContent=p.estado;
+}
+
+$("#bStart").onclick=async()=>{await post("/api/pomodoro",{acao:"iniciar"});loadPomodoro()};
+$("#bPause").onclick=async()=>{await post("/api/pomodoro",{acao:"pausar"});loadPomodoro()};
+$("#bStop").onclick=async()=>{await post("/api/pomodoro",{acao:"parar"});loadPomodoro()};
+
+async function loadConfig(){
+  const c=await get("/api/config");
+  if(c.nome)$("#greeting").textContent="Oi, "+c.nome+"!";
+  const st=$("#study"),bk=$("#brk");
+  st.min=c.min_study;st.max=c.max_study;st.value=c.study_min;$("#vStudy").textContent=c.study_min;
+  bk.min=c.min_break;bk.max=c.max_break;bk.value=c.break_min;$("#vBreak").textContent=c.break_min;
+  $("#bright").value=c.brightness;$("#vBright").textContent=c.brightness;
+  $("#vol").value=c.volume;$("#vVol").textContent=c.volume;
+
+  const a=c.alerta_pais,on=[];
+  if(a.amarelo)on.push("amarelo");if(a.vermelho)on.push("vermelho");
+  $("#alertNote").textContent=on.length
+    ? "Quando você sinalizar "+on.join(" ou ")+", seus pais recebem um aviso. Só eles podem mudar isso."
+    : "Nenhum aviso automático está ligado agora.";
+}
+
+[["study","vStudy"],["brk","vBreak"],["bright","vBright"],["vol","vVol"]].forEach(([id,lbl])=>{
+  $("#"+id).oninput=e=>$("#"+lbl).textContent=e.target.value;
+});
+
+$("#save").onclick=async()=>{
+  await post("/api/config",{study_min:+$("#study").value,break_min:+$("#brk").value,
+    brightness:+$("#bright").value,volume:+$("#vol").value});
+  $("#okMsg").textContent="Salvo!";setTimeout(()=>$("#okMsg").textContent="",2000);
+  loadConfig();
+};
+
+loadPet();loadRoutine();loadConfig();loadPomodoro();
+setInterval(loadPomodoro,1000);
+</script></body></html>

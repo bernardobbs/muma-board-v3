@@ -1,0 +1,157 @@
+<!doctype html><html lang="pt-BR"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Configuração</title><style>
+:root{--bg:#eceef1;--card:#fff;--ink:#1e2126;--soft:#6b7280;--ac:#3f6ea8;--line:#dfe3e8;--warn:#a6402f}
+*{box-sizing:border-box}body{margin:0;padding:18px 14px 40px;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+h1{font-size:20px;margin:0 0 2px}h2{font-size:13px;margin:0 0 12px;color:var(--soft);text-transform:uppercase;letter-spacing:.06em}
+.sub{color:var(--soft);font-size:13px;margin:0 0 18px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:14px}
+.blk{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;background:#fff}
+.row{display:flex;gap:8px;align-items:center;margin:8px 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.days{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:6px}
+.day{width:30px;height:30px;border:1px solid var(--line);border-radius:7px;background:#fff;font-size:11px;cursor:pointer;padding:0}
+.day.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.x{background:none;border:0;color:var(--warn);cursor:pointer;font-size:18px;padding:0 4px;line-height:1}
+.add{background:#f3f5f8;border:1px dashed var(--line);border-radius:8px;padding:8px;width:100%;cursor:pointer;font:inherit;color:var(--soft)}
+label{display:block;font-size:12px;color:var(--soft);margin:10px 0 3px}
+.chk{display:flex;align-items:center;gap:8px;margin:8px 0;font-size:14px}
+.chk input{width:auto}
+button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:12px}
+.msg{font-size:13px;text-align:center;margin-top:8px;min-height:18px}
+.msg.err{color:var(--warn)}.msg.ok{color:#2f7d5e}
+.hint{font-size:12px;color:var(--soft);margin-top:8px}
+</style></head><body>
+
+<h1>Configuração</h1>
+<p class="sub">Área dos responsáveis. Aqui ficam as regras — a página dela controla só o uso.</p>
+
+<div class="card">
+  <h2>Quem vai usar este aparelho</h2>
+  <label>Nome</label><input type="text" id="cname" placeholder="Nome da criança/adolescente">
+  <label>Data de nascimento</label><input type="date" id="cbirth">
+  <p class="hint" id="ageHint"></p>
+  <div class="chk"><input type="checkbox" id="regOn"><label style="margin:0">Ativar semáforo de sobrecarga e biblioteca de estratégias</label></div>
+  <p class="hint">Isso é sobre necessidade específica (regulação sensorial/emocional), não sobre idade — liga só se fizer sentido pra essa criança.</p>
+</div>
+
+<div class="card">
+  <h2>Rotina</h2>
+  <div id="blocks"></div>
+  <button class="add" id="addBlock">+ adicionar bloco</button>
+  <button class="save" id="saveRoutine">Salvar rotina</button>
+  <div class="msg" id="msgR"></div>
+  <p class="hint">Se o JSON der erro, a versão anterior é mantida.</p>
+</div>
+
+<div class="card">
+  <h2>Regras do bichinho</h2>
+  <div class="grid">
+    <div><label>Teto de pontos por dia</label><input type="number" id="cap"></div>
+    <div><label>Aviso prévio (segundos)</label><input type="number" id="warn"></div>
+    <div><label>Pontos p/ Filhote</label><input type="number" id="s2"></div>
+    <div><label>Pontos p/ Jovem</label><input type="number" id="s3"></div>
+    <div><label>Pontos p/ Forte</label><input type="number" id="s4"></div>
+  </div>
+  <p class="hint">Progresso nunca regride — não há como zerar pontos por aqui, e isso é proposital.</p>
+</div>
+
+<div class="card">
+  <h2>Alerta de sobrecarga</h2>
+  <div class="chk"><input type="checkbox" id="yon"><label style="margin:0">Avisar no amarelo</label></div>
+  <div class="chk"><input type="checkbox" id="yauto"><label style="margin:0">Amarelo envia sem pedir confirmação</label></div>
+  <div class="chk"><input type="checkbox" id="ron"><label style="margin:0">Avisar no vermelho</label></div>
+  <div class="chk"><input type="checkbox" id="rauto"><label style="margin:0">Vermelho envia sem pedir confirmação</label></div>
+  <label>Servidor ntfy</label><input type="text" id="nsrv" placeholder="https://ntfy.sh">
+  <label>Tópico ntfy</label><input type="text" id="ntop" placeholder="use algo longo e aleatório">
+  <p class="hint">Quem souber o nome do tópico consegue ler os avisos. Use algo difícil de adivinhar, ou um tópico com senha.</p>
+</div>
+
+<div class="card">
+  <h2>Sistema</h2>
+  <label>Fuso horário (formato POSIX TZ)</label>
+  <input type="text" id="tz" placeholder="&lt;-03&gt;3">
+  <p class="hint">Piauí: <code>&lt;-03&gt;3</code>. Sem isso, a virada do dia acontece no horário errado.</p>
+  <button class="save" id="saveCfg">Salvar regras</button>
+  <div class="msg" id="msgC"></div>
+</div>
+
+<script>
+const D=["D","S","T","Q","Q","S","S"],DN=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
+let data={blocks:[]};
+const $=s=>document.querySelector(s);
+const uid=()=>"t"+Math.random().toString(36).slice(2,7);
+
+function render(){
+  const root=$("#blocks");root.innerHTML="";
+  data.blocks.forEach((b,bi)=>{
+    const d=document.createElement("div");d.className="blk";
+    const head=document.createElement("div");head.className="row";
+    const nm=document.createElement("input");nm.type="text";nm.value=b.name;
+    nm.style.fontWeight="600";nm.oninput=e=>b.name=e.target.value;
+    const del=document.createElement("button");del.className="x";del.textContent="×";
+    del.onclick=()=>{data.blocks.splice(bi,1);render()};
+    head.append(nm,del);d.appendChild(head);
+
+    b.tasks.forEach((t,ti)=>{
+      const r=document.createElement("div");r.className="row";
+      const lb=document.createElement("input");lb.type="text";lb.value=t.label;
+      lb.oninput=e=>t.label=e.target.value;
+      const rm=document.createElement("button");rm.className="x";rm.textContent="×";
+      rm.onclick=()=>{b.tasks.splice(ti,1);render()};
+      r.append(lb,rm);d.appendChild(r);
+      const dd=document.createElement("div");dd.className="days";
+      for(let i=0;i<7;i++){
+        const btn=document.createElement("button");
+        btn.className="day"+((t.days>>i&1)?" on":"");
+        btn.textContent=D[i];btn.title=DN[i];
+        btn.onclick=()=>{t.days^=(1<<i);render()};
+        dd.appendChild(btn);
+      }
+      d.appendChild(dd);
+    });
+    const at=document.createElement("button");at.className="add";at.textContent="+ tarefa";
+    at.onclick=()=>{b.tasks.push({id:uid(),label:"Nova tarefa",days:127,points:1});render()};
+    d.appendChild(at);root.appendChild(d);
+  });
+}
+
+$("#addBlock").onclick=()=>{data.blocks.push({name:"Novo bloco",tasks:[]});render()};
+
+function show(el,ok,txt){el.className="msg "+(ok?"ok":"err");el.textContent=txt;setTimeout(()=>el.textContent="",3000)}
+
+$("#saveRoutine").onclick=async()=>{
+  const r=await fetch("/api/admin/routine",{method:"POST",body:JSON.stringify(data)}).then(r=>r.json());
+  show($("#msgR"),r.ok,r.ok?"Rotina salva.":(r.erro||"Falhou."));
+};
+
+$("#saveCfg").onclick=async()=>{
+  const body={nome:$("#cname").value,data_nascimento:$("#cbirth").value,
+    regulacao_ativa:$("#regOn").checked,
+    daily_cap:+$("#cap").value,warn_sec:+$("#warn").value,
+    stage2:+$("#s2").value,stage3:+$("#s3").value,stage4:+$("#s4").value,
+    y_on:$("#yon").checked,r_on:$("#ron").checked,y_auto:$("#yauto").checked,r_auto:$("#rauto").checked,
+    ntfy_srv:$("#nsrv").value,ntfy_top:$("#ntop").value,tz:$("#tz").value};
+  const r=await fetch("/api/admin/config",{method:"POST",body:JSON.stringify(body)}).then(r=>r.json());
+  show($("#msgC"),r.ok,r.ok?"Regras salvas.":(r.erro||"Falhou."));
+  loadCfg();
+};
+
+async function loadCfg(){
+  const c=await fetch("/api/admin/config").then(r=>r.json());
+  $("#cname").value=c.nome||"";$("#cbirth").value=c.data_nascimento||"";
+  $("#regOn").checked=!!c.regulacao_ativa;
+  $("#ageHint").textContent=c.idade>=0
+    ? c.idade+" anos -- os valores abaixo foram sugeridos com base nessa idade, mas edite à vontade."
+    : "Data de nascimento não confirmada ainda, ou relógio do aparelho não sincronizou.";
+  $("#cap").value=c.daily_cap;$("#warn").value=c.warn_sec;
+  $("#s2").value=c.stage2;$("#s3").value=c.stage3;$("#s4").value=c.stage4;
+  $("#yon").checked=c.y_on;$("#ron").checked=c.r_on;
+  $("#yauto").checked=c.y_auto;$("#rauto").checked=c.r_auto;
+  $("#nsrv").value=c.ntfy_srv;$("#ntop").value=c.ntfy_top;$("#tz").value=c.tz;
+}
+
+fetch("/api/admin/routine").then(r=>r.json()).then(d=>{data=d;render()});
+loadCfg();
+</script></body></html>

@@ -1,0 +1,46 @@
+#pragma once
+#include <esp_timer.h>
+#include <functional>
+#include <string>
+
+enum class PomodoroState { IDLE, STUDY, WARNING, BREAK, PAUSED };
+
+class PomodoroEngine {
+public:
+    static PomodoroEngine& GetInstance() { static PomodoroEngine i; return i; }
+
+    void Initialize();          // cria o timer; le duracoes do DeviceConfig
+    void ReloadRules();         // chamado quando a config muda pela pagina web
+
+    void Start();
+    void Pause();
+    void Resume();
+    void Stop();
+
+    PomodoroState state() const { return state_; }
+    int seconds_remaining() const;
+    std::string StateName() const;
+    std::string StatusJson() const;
+
+    void SetOnPhaseChanged(std::function<void(PomodoroState)> cb) { on_phase_changed_ = cb; }
+    // Emitido a cada segundo enquanto rodando -- pra atualizar o label do
+    // cronometro na tela sem a UI precisar de timer proprio.
+    void SetOnTick(std::function<void(int)> cb) { on_tick_ = cb; }
+
+private:
+    PomodoroEngine() = default;
+    ~PomodoroEngine();
+    void Tick();
+    static void TickTrampoline(void* arg);
+    void EnterPhase(PomodoroState phase, int seconds);
+    void EnterIdle();
+
+    esp_timer_handle_t timer_ = nullptr;
+    PomodoroState state_ = PomodoroState::IDLE;
+    int64_t phase_start_us_ = 0, phase_duration_us_ = 0, paused_remaining_us_ = 0;
+    bool warning_fired_ = false;
+    int study_seconds_ = 25 * 60, break_seconds_ = 5 * 60, warning_seconds_ = 120;
+
+    std::function<void(PomodoroState)> on_phase_changed_;
+    std::function<void(int)> on_tick_;
+};
