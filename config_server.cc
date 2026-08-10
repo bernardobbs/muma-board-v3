@@ -5,6 +5,7 @@
 #include "pomodoro_tool.h"
 #include "semaphore_tool.h"
 #include "child_profile.h"
+#include "web_assets.h"
 
 #include <cJSON.h>
 #include <esp_log.h>
@@ -13,13 +14,6 @@
 #include <cstring>
 
 #define TAG "ConfigServer"
-
-// EMBED_TXTFILES (nao EMBED_FILES) -- assim o ESP-IDF acrescenta o
-// terminador nulo e podemos usar HTTPD_RESP_USE_STRLEN. Com EMBED_FILES
-// nao ha terminador, e a conta "end - start - 1" cortava o ultimo byte
-// do HTML (bug da versao anterior).
-extern const char index_html_start[] asm("_binary_index_html_start");
-extern const char admin_html_start[] asm("_binary_admin_html_start");
 
 void ConfigServer::Start(const std::string& admin_password) {
     if (server_ != nullptr) return;
@@ -184,13 +178,13 @@ bool ConfigServer::RequireCsrf(httpd_req_t* req) {
 
 esp_err_t ConfigServer::GetIndex(httpd_req_t* req) {
     httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, index_html_start, HTTPD_RESP_USE_STRLEN);
+    return httpd_resp_send(req, kIndexHtml, HTTPD_RESP_USE_STRLEN);
 }
 
 esp_err_t ConfigServer::GetAdminPage(httpd_req_t* req) {
     if (!RequireAdmin(req)) return ESP_OK;
     httpd_resp_set_type(req, "text/html; charset=utf-8");
-    return httpd_resp_send(req, admin_html_start, HTTPD_RESP_USE_STRLEN);
+    return httpd_resp_send(req, kAdminHtml, HTTPD_RESP_USE_STRLEN);
 }
 
 // ------------------------------------------------------------- area dela

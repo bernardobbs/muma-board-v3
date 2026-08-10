@@ -77,6 +77,19 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 
 ## Resolvido nesta passada
 
+- **Vocabulário de emoção do bichinho corrigido**: `Tamagotchi::MoodName()`
+  usava chaves em português (`"neutro"`, `"focado"`...) que não batem
+  com nenhum pacote de emoji do `xiaozhi-esp32`. Confirmado no código
+  base que o vocabulário padrão é em inglês (`"neutral"`, `"happy"`,
+  `"thinking"`, `"surprised"`, `"funny"`...) e já é reconhecido pelos
+  pacotes de emoji embutidos (ex.: `noto-color-emoji_32`, já escolhido
+  pra essa placa) — sem precisar de GIF customizado nenhum.
+- **HTML das páginas não depende mais de `EMBED_TXTFILES`**: o build
+  real do `xiaozhi-esp32` não tem esse gancho por board (só um
+  `idf_component_register` único pro projeto inteiro). O conteúdo de
+  `www/index.html` e `www/admin.html` agora vive em `web_assets.cc`
+  como string C++, gerado por `scripts/gen_web_assets.py` — rode esse
+  script depois de editar qualquer um dos dois HTMLs.
 - **CSRF nos POSTs de `/admin`**: `GET /api/admin/csrf` devolve um token
   gerado por boot; `POST /api/admin/routine` e `POST /api/admin/config`
   agora exigem esse token no header `X-CSRF-Token` (além da senha).

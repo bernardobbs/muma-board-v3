@@ -1,11 +1,17 @@
-# CMakeLists.txt do board sp-esp32-s3-1.54-muma
+# AVISO: este arquivo NAO reflete como o build real do xiaozhi-esp32
+# funciona (ver item #3 do plano de integracao) -- o projeto base usa
+# um idf_component_register UNICO pro component "main" inteiro, e cada
+# board so tem seus .cc/.c capturados por um file(GLOB) automatico em
+# main/CMakeLists.txt. Nao ha idf_component_register por board.
+# Mantido por enquanto so como registro de quais REQUIRES ESP-IDF esse
+# conjunto de arquivos precisa; sera substituido por uma nota de
+# integracao quando o item #3 for resolvido.
 #
-# ATENCAO ao EMBED_TXTFILES vs EMBED_FILES:
-#   - HTML  -> EMBED_TXTFILES (o IDF acrescenta o terminador nulo, que
-#              e o que permite usar HTTPD_RESP_USE_STRLEN)
-#   - GIF   -> EMBED_FILES (binario, sem terminador)
-# Trocar os dois de lugar quebra em silencio: o HTML perde o ultimo byte
-# ou o GIF ganha um byte a mais.
+# HTML das paginas: NAO usa mais EMBED_TXTFILES (ver web_assets.h) --
+# vira string C++ em web_assets.cc, gerado por scripts/gen_web_assets.py.
+#
+# GIFs (quando existirem): usar EMBED_FILES (binario, sem terminador
+# nulo automatico -- diferente de EMBED_TXTFILES).
 
 idf_component_register(
     SRCS
@@ -19,7 +25,8 @@ idf_component_register(
         "notifications.cc"
         "mcp_tools.cc"
         "config_server.cc"
-        # "pet_emoji_collection.cc"   # descomentar quando os GIFs existirem
+        "web_assets.cc"
+        # "pet_emoji_collection.cc"   # descomentar se um dia quisermos GIFs customizados
     INCLUDE_DIRS "."
     REQUIRES
         esp_http_server
@@ -28,9 +35,6 @@ idf_component_register(
         mbedtls
         json
         nvs_flash
-    EMBED_TXTFILES
-        "www/index.html"
-        "www/admin.html"
     # EMBED_FILES
     #     "assets/lobo_neutro.gif"
     #     "assets/lobo_focado.gif"
