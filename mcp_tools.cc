@@ -91,27 +91,33 @@ void RegisterAll() {
     // Independente de idade -- e sobre necessidade especifica (regulacao
     // sensorial/emocional), nao sobre quantos anos a crianca tem. Liga/
     // desliga em /admin, decisao dos responsaveis, nao do firmware.
-    if (ChildProfile::GetInstance().regulation_tools_enabled()) {
-        mcp.AddTool("self.semaphore.set_level",
-            "Registra o nivel de sobrecarga que ela mesma sinalizou: verde, amarelo ou vermelho",
-            PropertyList({ Property("nivel", kPropertyTypeString) }),
-            [&sem](const PropertyList& p) -> ReturnValue {
-                auto v = p["nivel"].value<std::string>();
-                if (v == "verde") sem.SetLevel(OverloadLevel::VERDE);
-                else if (v == "amarelo") sem.SetLevel(OverloadLevel::AMARELO);
-                else if (v == "vermelho") sem.SetLevel(OverloadLevel::VERMELHO);
-                else return std::string("Nivel invalido. Use verde, amarelo ou vermelho.");
-                return std::string("Anotado: " + sem.LevelName());
-            });
+    //
+    // As tools ficam SEMPRE registradas; o toggle e checado a cada
+    // chamada (nao so uma vez no boot), pra que ligar/desligar em /admin
+    // faca efeito na hora, sem precisar reiniciar o aparelho.
+    mcp.AddTool("self.semaphore.set_level",
+        "Registra o nivel de sobrecarga que ela mesma sinalizou: verde, amarelo ou vermelho",
+        PropertyList({ Property("nivel", kPropertyTypeString) }),
+        [&sem](const PropertyList& p) -> ReturnValue {
+            if (!ChildProfile::GetInstance().regulation_tools_enabled())
+                return std::string("O semaforo de sobrecarga esta desligado nas configuracoes.");
+            auto v = p["nivel"].value<std::string>();
+            if (v == "verde") sem.SetLevel(OverloadLevel::VERDE);
+            else if (v == "amarelo") sem.SetLevel(OverloadLevel::AMARELO);
+            else if (v == "vermelho") sem.SetLevel(OverloadLevel::VERMELHO);
+            else return std::string("Nivel invalido. Use verde, amarelo ou vermelho.");
+            return std::string("Anotado: " + sem.LevelName());
+        });
 
-        mcp.AddTool("self.semaphore.confirm", "Confirma o envio do aviso aos responsaveis",
-            PropertyList(), [&sem](const PropertyList&) -> ReturnValue {
-                sem.ConfirmSend(); return true; });
+    mcp.AddTool("self.semaphore.confirm", "Confirma o envio do aviso aos responsaveis",
+        PropertyList(), [&sem](const PropertyList&) -> ReturnValue {
+            if (!ChildProfile::GetInstance().regulation_tools_enabled()) return false;
+            sem.ConfirmSend(); return true; });
 
-        mcp.AddTool("self.semaphore.cancel", "Cancela o envio do aviso aos responsaveis",
-            PropertyList(), [&sem](const PropertyList&) -> ReturnValue {
-                sem.CancelSend(); return true; });
-    }
+    mcp.AddTool("self.semaphore.cancel", "Cancela o envio do aviso aos responsaveis",
+        PropertyList(), [&sem](const PropertyList&) -> ReturnValue {
+            if (!ChildProfile::GetInstance().regulation_tools_enabled()) return false;
+            sem.CancelSend(); return true; });
 
     ESP_LOGI(TAG, "Ferramentas MCP registradas para %s",
              ChildProfile::GetInstance().name().c_str());
