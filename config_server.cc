@@ -8,6 +8,7 @@
 
 #include <cJSON.h>
 #include <esp_log.h>
+#include <esp_random.h>
 #include <mbedtls/base64.h>
 #include <cstring>
 
@@ -24,8 +25,21 @@ void ConfigServer::Start(const std::string& admin_password) {
     if (server_ != nullptr) return;
     admin_password_ = admin_password;
 
+    // Um token por boot, nao por request -- simples e suficiente pra um
+    // servidor domestico sem sessao de usuario de verdade.
+    static const char kHex[] = "0123456789abcdef";
+    uint8_t raw[16];
+    esp_fill_random(raw, sizeof(raw));
+    char token[33];
+    for (int i = 0; i < 16; i++) {
+        token[i * 2]     = kHex[raw[i] >> 4];
+        token[i * 2 + 1] = kHex[raw[i] & 0x0F];
+    }
+    token[32] = '\0';
+    csrf_token_ = token;
+
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 24;      // 14 rotas hoje, com folga
+    config.max_uri_handlers = 24;      // 15 rotas hoje, com folga
     config.lru_purge_enable = true;
     config.stack_size = 8192;
 
@@ -76,6 +90,7 @@ void ConfigServer::RegisterHandlers() {
     Register("/api/admin/routine", HTTP_POST, PostRoutineDef);
     Register("/api/admin/config",  HTTP_GET,  GetAdminConfig);
     Register("/api/admin/config",  HTTP_POST, PostAdminConfig);
+    Register("/api/admin/csrf",    HTTP_GET,  GetAdminCsrf);
 }
 
 // ------------------------------------------------------------- helpers
@@ -141,6 +156,25 @@ bool ConfigServer::RequireAdmin(httpd_req_t* req) {
         httpd_resp_set_status(req, "401 Unauthorized");
         httpd_resp_set_hdr(req, "WWW-Authenticate", "Basic realm=\"Config\"");
         httpd_resp_sendstr(req, "Acesso restrito.");
+        return false;
+    }
+    return true;
+}
+
+bool ConfigServer::RequireCsrf(httpd_req_t* req) {
+    auto& self = ConfigServer::GetInstance();
+    size_t len = httpd_req_get_hdr_value_len(req, "X-CSRF-Token");
+    bool ok = false;
+    if (len > 0 && len < 128) {
+        std::string token(len + 1, '\0');
+        if (httpd_req_get_hdr_value_str(req, "X-CSRF-Token", &token[0], len + 1) == ESP_OK) {
+            token.resize(len);
+            ok = (token == self.csrf_token_);
+        }
+    }
+    if (!ok) {
+        httpd_resp_set_status(req, "403 Forbidden");
+        httpd_resp_sendstr(req, "Token CSRF ausente ou invalido.");
         return false;
     }
     return true;
@@ -249,8 +283,15 @@ esp_err_t ConfigServer::GetRoutineDef(httpd_req_t* req) {
     return SendJson(req, RoutineEngine::GetInstance().DefinitionJson());
 }
 
+esp_err_t ConfigServer::GetAdminCsrf(httpd_req_t* req) {
+    if (!RequireAdmin(req)) return ESP_OK;
+    auto& self = ConfigServer::GetInstance();
+    return SendJson(req, "{\"csrf\":\"" + self.csrf_token_ + "\"}");
+}
+
 esp_err_t ConfigServer::PostRoutineDef(httpd_req_t* req) {
     if (!RequireAdmin(req)) return ESP_OK;
+    if (!RequireCsrf(req)) return ESP_OK;
     std::string body;
     if (!ReadBody(req, body, 8192)) return SendBadRequest(req, "corpo invalido ou grande demais");
     if (!RoutineEngine::GetInstance().ReplaceDefinition(body))
@@ -265,6 +306,7 @@ esp_err_t ConfigServer::GetAdminConfig(httpd_req_t* req) {
 
 esp_err_t ConfigServer::PostAdminConfig(httpd_req_t* req) {
     if (!RequireAdmin(req)) return ESP_OK;
+    if (!RequireCsrf(req)) return ESP_OK;
     std::string body;
     if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
     cJSON* root = cJSON_Parse(body.c_str());

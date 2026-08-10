@@ -80,6 +80,7 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
 <script>
 const D=["D","S","T","Q","Q","S","S"],DN=["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"];
 let data={blocks:[]};
+let csrf="";
 const $=s=>document.querySelector(s);
 const uid=()=>"t"+Math.random().toString(36).slice(2,7);
 
@@ -122,7 +123,7 @@ $("#addBlock").onclick=()=>{data.blocks.push({name:"Novo bloco",tasks:[]});rende
 function show(el,ok,txt){el.className="msg "+(ok?"ok":"err");el.textContent=txt;setTimeout(()=>el.textContent="",3000)}
 
 $("#saveRoutine").onclick=async()=>{
-  const r=await fetch("/api/admin/routine",{method:"POST",body:JSON.stringify(data)}).then(r=>r.json());
+  const r=await fetch("/api/admin/routine",{method:"POST",headers:{"X-CSRF-Token":csrf},body:JSON.stringify(data)}).then(r=>r.json());
   show($("#msgR"),r.ok,r.ok?"Rotina salva.":(r.erro||"Falhou."));
 };
 
@@ -133,7 +134,7 @@ $("#saveCfg").onclick=async()=>{
     stage2:+$("#s2").value,stage3:+$("#s3").value,stage4:+$("#s4").value,
     y_on:$("#yon").checked,r_on:$("#ron").checked,y_auto:$("#yauto").checked,r_auto:$("#rauto").checked,
     ntfy_srv:$("#nsrv").value,ntfy_top:$("#ntop").value,tz:$("#tz").value};
-  const r=await fetch("/api/admin/config",{method:"POST",body:JSON.stringify(body)}).then(r=>r.json());
+  const r=await fetch("/api/admin/config",{method:"POST",headers:{"X-CSRF-Token":csrf},body:JSON.stringify(body)}).then(r=>r.json());
   show($("#msgC"),r.ok,r.ok?"Regras salvas.":(r.erro||"Falhou."));
   loadCfg();
 };
@@ -152,6 +153,7 @@ async function loadCfg(){
   $("#nsrv").value=c.ntfy_srv;$("#ntop").value=c.ntfy_top;$("#tz").value=c.tz;
 }
 
+fetch("/api/admin/csrf").then(r=>r.json()).then(d=>csrf=d.csrf);
 fetch("/api/admin/routine").then(r=>r.json()).then(d=>{data=d;render()});
 loadCfg();
 </script></body></html>

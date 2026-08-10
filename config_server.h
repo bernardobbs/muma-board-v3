@@ -46,12 +46,20 @@ private:
     static esp_err_t PostRoutineDef(httpd_req_t* req);
     static esp_err_t GetAdminConfig(httpd_req_t* req);
     static esp_err_t PostAdminConfig(httpd_req_t* req);
+    static esp_err_t GetAdminCsrf(httpd_req_t* req);
 
     static bool ReadBody(httpd_req_t* req, std::string& out, size_t max_len = 4096);
     static bool RequireAdmin(httpd_req_t* req);
+    // So faz sentido chamar DEPOIS de RequireAdmin: com Basic Auth, o
+    // navegador reenvia as credenciais em qualquer POST pro mesmo site,
+    // entao uma pagina maliciosa aberta no mesmo navegador conseguiria
+    // disparar POSTs de admin sem saber a senha -- exceto que ela nao
+    // sabe o token, que so sai em resposta a uma chamada JS autenticada.
+    static bool RequireCsrf(httpd_req_t* req);
     static esp_err_t SendJson(httpd_req_t* req, const std::string& json);
     static esp_err_t SendBadRequest(httpd_req_t* req, const char* msg);
 
     httpd_handle_t server_ = nullptr;
     std::string admin_password_;
+    std::string csrf_token_;
 };

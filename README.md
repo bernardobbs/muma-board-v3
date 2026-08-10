@@ -74,4 +74,15 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 5. Biblioteca de estratégias portada pro ESP-IDF (existe só no
    `family-firmware` Arduino)
 6. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
-7. Sem CSRF nos POSTs
+
+## Resolvido nesta passada
+
+- **CSRF nos POSTs de `/admin`**: `GET /api/admin/csrf` devolve um token
+  gerado por boot; `POST /api/admin/routine` e `POST /api/admin/config`
+  agora exigem esse token no header `X-CSRF-Token` (além da senha).
+  Isso fecha o CSRF clássico de Basic Auth: uma página maliciosa aberta
+  no mesmo navegador não sabe o token, então não consegue forjar esses
+  POSTs mesmo que o navegador reenvie as credenciais automaticamente.
+- **Toggle do semáforo passou a ser dinâmico**: `self.semaphore.*` no
+  MCP agora checa `regulation_tools_enabled()` a cada chamada, não só
+  no boot -- ligar/desligar em `/admin` faz efeito na hora.
