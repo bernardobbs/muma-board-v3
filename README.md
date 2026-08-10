@@ -8,7 +8,9 @@ touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
 
 1. Copie todos os `.h`/`.cc` deste repo (exceto `README.md`,
    `board_integration.md`, `RELATORIO_CONTINUIDADE.md`) pra dentro de
-   `main/boards/spotpear/sp-esp32-s3-1.54-muma/` no clone.
+   `main/boards/spotpear/sp-esp32-s3-1.54-muma/` no clone, **substituindo**
+   o `sp-esp32-s3-1.54-muma.cc` que já existe lá -- o daqui já vem com
+   as features de família integradas (ver `board_integration.md`).
 2. **Não precisa de `CMakeLists.txt` próprio.** O build do
    `xiaozhi-esp32` não usa `idf_component_register` por board -- é um
    único component `main` pro projeto inteiro (`main/CMakeLists.txt`),
@@ -22,19 +24,20 @@ touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
    `esp_http_server.h` direto na pasta do board, sem nenhum
    `CMakeLists.txt` próprio -- e `mbedtls`/`json`/NVS já são usados
    amplamente em `main/` (settings, OTA, protocolos).
-4. Aplique o trecho de `board_integration.md` em
-   `sp-esp32-s3-1.54-muma.cc` (ainda não fizemos isso -- é o próximo
-   passo da integração, ver pendências abaixo).
+4. Antes de flashear, troque `FAMILY_ADMIN_PASSWORD` no topo do
+   `sp-esp32-s3-1.54-muma.cc` pela senha real de admin.
 5. Depois de editar `www/index.html` ou `www/admin.html`, rode
    `python3 scripts/gen_web_assets.py` pra regenerar `web_assets.cc`.
 
 ## ⚠️ Continua sem compilação — mesmo aviso de sempre
 
-Sem ESP-IDF aqui. Não compilei nem testei. Base sólida, não pronta.
-A pasta do board no `78/xiaozhi-esp32` já existe e foi conferida (ver
-seção acima), mas o snippet de `board_integration.md` ainda não foi
-colado em `sp-esp32-s3-1.54-muma.cc` -- sem isso, o firmware liga como
-um xiaozhi genérico, sem nenhuma feature do companheiro.
+Sem ESP-IDF aqui. Não compilei nem testei, e não tenho o aparelho pra
+validar em hardware real. A pasta do board no `78/xiaozhi-esp32` já
+existe e foi conferida, e `sp-esp32-s3-1.54-muma.cc` já vem com as
+features de família integradas (ver seção acima e
+`board_integration.md`) -- mas isso é revisão de código, não teste em
+placa. Primeira coisa a fazer com o hardware em mãos: compilar de
+verdade e ver se o boot completa sem crash.
 
 ## O que mudou desde a v2
 
@@ -106,6 +109,14 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 
 ## Resolvido nesta passada
 
+- **Integração com o board real aplicada**: `sp-esp32-s3-1.54-muma.cc`
+  (raiz deste repo) é o arquivo completo do board com
+  `InitializeFamilyFeatures()` chamado no construtor e
+  `ConfigServer::Start()` disparado via `SetNetworkEventCallback` em
+  `NetworkEvent::Connected` -- confirmado no código de
+  `main/boards/common/wifi_board.h`/`.cc` do repo base que é esse o
+  mecanismo real de "depois que o Wi-Fi conectar". Ver
+  `board_integration.md` pro detalhe de cada peça.
 - **Vocabulário de emoção do bichinho corrigido**: `Tamagotchi::MoodName()`
   usava chaves em português (`"neutro"`, `"focado"`...) que não batem
   com nenhum pacote de emoji do `xiaozhi-esp32`. Confirmado no código
