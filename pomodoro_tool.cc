@@ -89,7 +89,7 @@ void PomodoroEngine::Tick() {
     int64_t remaining = phase_duration_us_ - elapsed;
     if (remaining < 0) remaining = 0;
 
-    // Aviso previo -- nunca cortar seco (regra pro perfil da Alana)
+    // Aviso previo -- nunca cortar seco (regra vale pra qualquer crianca)
     if (state_ == PomodoroState::STUDY && !warning_fired_ &&
         remaining <= (int64_t)warning_seconds_ * 1000000) {
         warning_fired_ = true;

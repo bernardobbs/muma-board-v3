@@ -7,7 +7,7 @@
 // nunca aplicados, limiares do tamagotchi estavam hardcoded no board.
 // Tudo isso passa por aqui agora.
 //
-// Nao ha mais "perfil Alana/Clara" fixo -- os valores abaixo comecam
+// Nao ha mais perfil fixo -- os valores abaixo comecam
 // com o que a faixa etaria da crianca sugere (ChildProfile), e dali em
 // diante sao 100% editaveis por /admin, independente da idade.
 class DeviceConfig {

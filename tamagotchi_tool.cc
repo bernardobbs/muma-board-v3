@@ -12,8 +12,8 @@
 
 void Tamagotchi::Initialize() {
     // Namespace fixo: cada aparelho pertence a UMA crianca agora (nao
-    // mais um "modelo Alana" vs "modelo Clara"), entao nao precisa mais
-    // de sufixo por perfil.
+    // mais dois modelos fixos), entao nao precisa mais de sufixo por
+    // perfil.
     ns_ = "tama";
 
     // Catalogo UNICO pra qualquer idade -- as opcoes do documento

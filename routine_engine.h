@@ -20,7 +20,7 @@ struct RoutineBlock {
 };
 
 // Rotina e DADO, nao codigo: JSON no NVS, editavel pela pagina /admin.
-// Mesmo motor serve Alana e Clara -- muda so o namespace e o rascunho.
+// Mesmo motor serve qualquer crianca -- muda so o namespace e o rascunho.
 class RoutineEngine {
 public:
     static RoutineEngine& GetInstance() { static RoutineEngine i; return i; }

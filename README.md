@@ -1,4 +1,4 @@
-# muma-board v3 — perfil aberto (nome + idade, não Alana/Clara fixos)
+# muma-board v3 — perfil aberto (nome + idade, não perfis fixos)
 
 Arquivos pra `main/boards/spotpear/sp-esp32-s3-1.54-muma/` no clone do
 `78/xiaozhi-esp32`.
@@ -9,7 +9,7 @@ Sem ESP-IDF aqui. Não compilei nem testei. Base sólida, não pronta.
 
 ## O que mudou desde a v2
 
-**Saiu:** `enum class Profile { ALANA, CLARA }` fixo, catálogos de
+**Saiu:** `enum class Profile` fixo com duas crianças hardcoded, catálogos de
 bichinho diferentes por criança, rotinas hardcoded pra cada uma.
 
 **Entrou:** `ChildProfile` — nome + data de nascimento, configurados em
@@ -39,7 +39,7 @@ quanto uma de 15, ou nenhuma das duas precisar.
 
 ## Catálogo de bichinho: unificado, não mais por idade
 
-Antes, Alana escolhia entre 4 opções e Clara entre outras 4. Agora é
+Antes, cada criança escolhia entre 4 opções fixas do seu perfil. Agora é
 **uma lista só com as 8**, disponível pra qualquer idade -- lobo, raposa,
 gato, dragão, unicórnio, coelha, panda, pintinho. Gosto não é algo que
 se determine por faixa etária; quem escolhe é a criança.
@@ -48,7 +48,7 @@ se determine por faixa etária; quem escolhe é a criança.
 
 Como cada aparelho físico agora serve **uma criança**, não um "modelo"
 entre dois fixos, os namespaces do NVS pararam de precisar de sufixo
-(`tama_alana`/`tama_clara` -> só `tama`). Menos código, menos chance de
+(`tama_<perfil>` -> só `tama`). Menos código, menos chance de
 esquecer de atualizar os dois lados quando alguma coisa muda.
 
 ## Arquivos novos/alterados
@@ -62,7 +62,7 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 | `routine_defaults.h` | Um rascunho neutro em vez de dois específicos |
 | `mcp_tools.cc` | Semáforo gated por toggle, não por perfil |
 | `config_server.cc` | Endpoint admin recebe nome/nascimento/toggle |
-| `www/admin.html` | Campos de nome/data no lugar do seletor Alana/Clara |
+| `www/admin.html` | Campos de nome/data no lugar do seletor de perfil fixo |
 | `www/index.html` | Saudação com o nome real da criança |
 
 ## O que ainda não existe (herdado da v2, sem mudança)
