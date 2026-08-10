@@ -30,7 +30,7 @@ public:
     int stage4() const { return stage4_; }
     void set_tama_rules(int daily_cap, int s2, int s3, int s4);
 
-    // --- semaforo / alerta (so Alana) ---
+    // --- semaforo / alerta (gated por ChildProfile::regulation_tools_enabled) ---
     bool notify_on_yellow() const { return notify_yellow_; }
     bool notify_on_red() const { return notify_red_; }
     bool auto_send_yellow() const { return auto_yellow_; }

@@ -17,7 +17,7 @@ class Tamagotchi {
 public:
     static Tamagotchi& GetInstance() { static Tamagotchi i; return i; }
 
-    // O catalogo depende do perfil (Alana/Clara); os limiares vem do
+    // Catalogo unico pra qualquer idade; os limiares vem do
     // DeviceConfig, entao nao ha mais TamaConfig separado.
     void Initialize();
     void ReloadRules() {}   // limiares sao lidos do DeviceConfig a cada uso

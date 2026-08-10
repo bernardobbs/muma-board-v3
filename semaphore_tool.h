@@ -4,9 +4,9 @@
 
 enum class OverloadLevel { VERDE, AMARELO, VERMELHO };
 
-// Semaforo de sobrecarga (perfil Alana). Regra de ouro: NUNCA muda de
-// nivel sozinho -- so ela ativa, por voz ou toque. O dispositivo nunca
-// pergunta como ela esta.
+// Semaforo de sobrecarga -- toggle generico em ChildProfile::regulation_tools_enabled().
+// Regra de ouro: NUNCA muda de nivel sozinho -- so a crianca ativa, por
+// voz ou toque. O dispositivo nunca pergunta como ela esta.
 class OverloadSemaphore {
 public:
     static OverloadSemaphore& GetInstance() { static OverloadSemaphore i; return i; }
