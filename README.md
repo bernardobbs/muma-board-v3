@@ -1,11 +1,40 @@
 # muma-board v3 — perfil aberto (nome + idade, não perfis fixos)
 
 Arquivos pra `main/boards/spotpear/sp-esp32-s3-1.54-muma/` no clone do
-`78/xiaozhi-esp32`.
+`78/xiaozhi-esp32`. Essa pasta já existe lá (hardware puro: display,
+touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
+
+## Como integrar (confirmado no repo base, não é só suposição)
+
+1. Copie todos os `.h`/`.cc` deste repo (exceto `README.md`,
+   `board_integration.md`, `RELATORIO_CONTINUIDADE.md`) pra dentro de
+   `main/boards/spotpear/sp-esp32-s3-1.54-muma/` no clone.
+2. **Não precisa de `CMakeLists.txt` próprio.** O build do
+   `xiaozhi-esp32` não usa `idf_component_register` por board -- é um
+   único component `main` pro projeto inteiro (`main/CMakeLists.txt`),
+   e cada board só tem seus `.cc`/`.c` capturados por um
+   `file(GLOB boards/<board>/*.cc)` automático. Qualquer arquivo novo
+   na pasta do board entra sozinho.
+3. **`esp_http_server`, `esp_http_client`, `cJSON`, NVS (via `Settings`)
+   e `esp_crt_bundle_attach` (via `mbedtls`) já estão disponíveis**,
+   sem precisar declarar `REQUIRES` em lugar nenhum: confirmado que
+   `main/boards/otto-robot/` e `main/boards/electron-bot/` já incluem
+   `esp_http_server.h` direto na pasta do board, sem nenhum
+   `CMakeLists.txt` próprio -- e `mbedtls`/`json`/NVS já são usados
+   amplamente em `main/` (settings, OTA, protocolos).
+4. Aplique o trecho de `board_integration.md` em
+   `sp-esp32-s3-1.54-muma.cc` (ainda não fizemos isso -- é o próximo
+   passo da integração, ver pendências abaixo).
+5. Depois de editar `www/index.html` ou `www/admin.html`, rode
+   `python3 scripts/gen_web_assets.py` pra regenerar `web_assets.cc`.
 
 ## ⚠️ Continua sem compilação — mesmo aviso de sempre
 
 Sem ESP-IDF aqui. Não compilei nem testei. Base sólida, não pronta.
+A pasta do board no `78/xiaozhi-esp32` já existe e foi conferida (ver
+seção acima), mas o snippet de `board_integration.md` ainda não foi
+colado em `sp-esp32-s3-1.54-muma.cc` -- sem isso, o firmware liga como
+um xiaozhi genérico, sem nenhuma feature do companheiro.
 
 ## O que mudou desde a v2
 
