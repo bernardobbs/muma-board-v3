@@ -76,17 +76,24 @@ std::string Tamagotchi::StageName() const {
     return "?";
 }
 
-// ESTAS strings sao as chaves exatas do EmojiCollection -- manter em
-// sincronia com os AddEmoji() de pet_emoji_collection.cc
+// ESTAS strings sao as chaves do vocabulario PADRAO de emocao do
+// xiaozhi-esp32 (main/display/*, docs/websocket.md) -- "neutral",
+// "happy", "sad", "thinking", "surprised", "funny" etc. Usando esse
+// vocabulario em vez de nomes proprios em portugues, o rosto do
+// bichinho JA funciona com os pacotes de emoji padrao (ex.:
+// noto-color-emoji_32, escolhido pra essa placa) sem precisar de
+// nenhum GIF customizado. So faz sentido trocar por chaves proprias
+// (via um pet_emoji_collection.cc dedicado) se um dia quisermos arte
+// exclusiva por especie de bichinho.
 std::string Tamagotchi::MoodName() const {
     switch (mood_) {
-        case TamaMood::NEUTRO:      return "neutro";
-        case TamaMood::FOCADO:      return "focado";
-        case TamaMood::AVISO:       return "aviso";
-        case TamaMood::BRINCALHAO:  return "brincalhao";
-        case TamaMood::COMEMORANDO: return "comemorando";
+        case TamaMood::NEUTRO:      return "neutral";
+        case TamaMood::FOCADO:      return "thinking";
+        case TamaMood::AVISO:       return "surprised";
+        case TamaMood::BRINCALHAO:  return "funny";
+        case TamaMood::COMEMORANDO: return "happy";
     }
-    return "neutro";
+    return "neutral";
 }
 
 void Tamagotchi::SetMood(TamaMood mood) {
