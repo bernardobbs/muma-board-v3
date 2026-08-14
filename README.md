@@ -99,12 +99,12 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 
 ## O que ainda não existe (herdado da v2, sem mudança)
 
-1. Label do cronômetro na tela
-2. Selo de estágio (2ª camada visual)
-3. Sincronização com Google Sheets
-4. Biblioteca de estratégias portada pro ESP-IDF (existe só no
-   `family-firmware` Arduino)
-5. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
+1. Selo de estágio (2ª camada visual)
+2. Sincronização com Google Sheets
+3. Biblioteca de estratégias portada pro ESP-IDF (existe só no
+   `family-firmware` Arduino) -- **precisa do conteúdo original**, não
+   está neste repo nem no `78/xiaozhi-esp32`
+4. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
 
 ## GIFs do bichinho: infraestrutura pronta, arte pendente
 
@@ -136,6 +136,11 @@ O que falta é só a **arte por espécie**:
   `main/boards/common/wifi_board.h`/`.cc` do repo base que é esse o
   mecanismo real de "depois que o Wi-Fi conectar". Ver
   `board_integration.md` pro detalhe de cada peça.
+- **Label do cronômetro na tela**: `UpdatePomodoroLabel(s)` mostra
+  `MM:SS` no canto superior direito, criado sob demanda no primeiro
+  tick (não dá pra criar no construtor -- `SetupUI()` do display só
+  roda depois, ver `board_integration.md`). Ligado em
+  `PomodoroEngine::SetOnTick`.
 - **Vocabulário de emoção do bichinho corrigido**: `Tamagotchi::MoodName()`
   usava chaves em português (`"neutro"`, `"focado"`...) que não batem
   com nenhum pacote de emoji do `xiaozhi-esp32`. Confirmado no código

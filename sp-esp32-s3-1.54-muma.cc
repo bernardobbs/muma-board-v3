@@ -24,6 +24,7 @@
 #include "power_save_timer.h"
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
+#include <cstdio>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
 // board original) ---
@@ -96,6 +97,7 @@ private:
     Display* display_;
     esp_timer_handle_t touchpad_timer_;
     Cst816d* cst816d_;
+    lv_obj_t* pomodoro_label_ = nullptr;   // label do cronometro, criado sob demanda
     esp_io_expander_handle_t io_expander_ = NULL;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
@@ -275,6 +277,28 @@ private:
                                      DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
+    // Cronometro do pomodoro no canto (TOP_RIGHT nao e usado por
+    // nenhum widget padrao do LcdDisplay -- top_bar_/status_bar_ ficam
+    // em TOP_MID, emoji em CENTER, bottom_bar_ em BOTTOM_MID). Criado
+    // na primeira chamada, nao antes: SetupUI() do display roda depois
+    // do construtor do board (Application::Initialize() chama os dois
+    // em sequencia), entao lv_screen_active() ainda nao existiria se a
+    // gente tentasse criar isto no construtor.
+    void UpdatePomodoroLabel(int seconds_remaining) {
+        DisplayLockGuard lock(display_);
+        if (pomodoro_label_ == nullptr) {
+            pomodoro_label_ = lv_label_create(lv_screen_active());
+            lv_obj_align(pomodoro_label_, LV_ALIGN_TOP_RIGHT, -4, 4);
+        }
+        if (seconds_remaining <= 0) {
+            lv_label_set_text(pomodoro_label_, "");
+            return;
+        }
+        char buf[8];
+        snprintf(buf, sizeof(buf), "%d:%02d", seconds_remaining / 60, seconds_remaining % 60);
+        lv_label_set_text(pomodoro_label_, buf);
+    }
+
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
@@ -322,10 +346,10 @@ private:
         });
         ApplyPetEmojiCollection(Tamagotchi::GetInstance().species_id());  // especie ja salva, se houver
 
-        // Cronometro na tela (label do pomodoro): ainda pendente -- falta
-        // um metodo tipo UpdatePomodoroLabel(s) nesta classe pra receber
-        // o OnTick. Ver pendencia conhecida no RELATORIO_CONTINUIDADE.md.
-        // PomodoroEngine::GetInstance().SetOnTick([this](int s) { ... });
+        // Cronometro na tela: label criado sob demanda no primeiro tick
+        // (nao dá pra criar aqui ainda -- SetupUI() do display so roda
+        // depois do construtor do board, ver Application::Initialize()).
+        PomodoroEngine::GetInstance().SetOnTick([this](int s) { UpdatePomodoroLabel(s); });
 
         mcp_tools::RegisterAll();
 
