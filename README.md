@@ -99,12 +99,13 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 
 ## O que ainda não existe (herdado da v2, sem mudança)
 
-1. Selo de estágio (2ª camada visual)
-2. Sincronização com Google Sheets
-3. Biblioteca de estratégias portada pro ESP-IDF (existe só no
+1. Sincronização com Google Sheets -- **precisa de credenciais do
+   Google Cloud** (projeto + OAuth ou service account) que só vocês
+   podem gerar
+2. Biblioteca de estratégias portada pro ESP-IDF (existe só no
    `family-firmware` Arduino) -- **precisa do conteúdo original**, não
    está neste repo nem no `78/xiaozhi-esp32`
-4. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
+3. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
 
 ## GIFs do bichinho: infraestrutura pronta, arte pendente
 
@@ -141,6 +142,9 @@ O que falta é só a **arte por espécie**:
   tick (não dá pra criar no construtor -- `SetupUI()` do display só
   roda depois, ver `board_integration.md`). Ligado em
   `PomodoroEngine::SetOnTick`.
+- **Selo de estágio**: `UpdateStageBadge()` mostra "Ovo"/"Filhote"/
+  "Jovem"/"Forte" como texto no canto inferior direito, ligado em
+  `Tamagotchi::SetOnEvolved`.
 - **Vocabulário de emoção do bichinho corrigido**: `Tamagotchi::MoodName()`
   usava chaves em português (`"neutro"`, `"focado"`...) que não batem
   com nenhum pacote de emoji do `xiaozhi-esp32`. Confirmado no código

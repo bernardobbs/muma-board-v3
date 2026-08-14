@@ -51,6 +51,16 @@ merge upstream do fork conflitar com essas mudanças):
   na UI passa por `DisplayLockGuard` (classe pública em
   `display/display.h`, dá pra usar de fora mesmo com `Lock`/`Unlock`
   sendo `protected` no `Display`).
+- **Selo de estágio**: `UpdateStageBadge()` mostra `Tamagotchi::StageName()`
+  ("Ovo"/"Filhote"/"Jovem"/"Forte") como texto puro no canto inferior
+  direito (`LV_ALIGN_BOTTOM_RIGHT`, também livre). Texto, não emoji --
+  a fonte de texto do board (`font_noto_sans_basic`) é charset básico,
+  sem glifo de emoji; emoji só existe como imagem raster no
+  `EmojiCollection`. Ligado em `Tamagotchi::SetOnEvolved` (dispara só
+  quando o estágio SOBE) + uma chamada inicial dentro do
+  `NetworkEventCallback` (mesma razão do label do cronômetro: precisa
+  que `SetupUI()` já tenha rodado, e é a única garantia assíncrona que
+  temos disso além do próprio tick do pomodoro).
 
 ## Senha de admin
 

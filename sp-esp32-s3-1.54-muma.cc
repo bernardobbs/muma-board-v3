@@ -98,6 +98,7 @@ private:
     esp_timer_handle_t touchpad_timer_;
     Cst816d* cst816d_;
     lv_obj_t* pomodoro_label_ = nullptr;   // label do cronometro, criado sob demanda
+    lv_obj_t* stage_badge_ = nullptr;      // selo de estagio, criado sob demanda
     esp_io_expander_handle_t io_expander_ = NULL;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
@@ -299,6 +300,21 @@ private:
         lv_label_set_text(pomodoro_label_, buf);
     }
 
+    // Selo de estagio (2a camada visual, junto do rosto/GIF de humor):
+    // texto simples com StageName() ("Ovo"/"Filhote"/"Jovem"/"Forte"),
+    // nao emoji -- a fonte de texto do board (font_noto_sans_basic) e
+    // "basic charset", sem glifo de emoji; o emoji fica so na imagem
+    // raster do EmojiCollection. BOTTOM_RIGHT fica livre (bottom_bar_
+    // e BOTTOM_MID, pomodoro_label_ ja ocupa TOP_RIGHT).
+    void UpdateStageBadge() {
+        DisplayLockGuard lock(display_);
+        if (stage_badge_ == nullptr) {
+            stage_badge_ = lv_label_create(lv_screen_active());
+            lv_obj_align(stage_badge_, LV_ALIGN_BOTTOM_RIGHT, -4, -4);
+        }
+        lv_label_set_text(stage_badge_, Tamagotchi::GetInstance().StageName().c_str());
+    }
+
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
@@ -351,6 +367,13 @@ private:
         // depois do construtor do board, ver Application::Initialize()).
         PomodoroEngine::GetInstance().SetOnTick([this](int s) { UpdatePomodoroLabel(s); });
 
+        // Selo de estagio: atualiza a cada evolucao. O estagio JA
+        // carregado do NVS (se o bichinho ja evoluiu antes do reboot)
+        // e mostrado separado, la no NetworkEventCallback do construtor
+        // -- mesma razao do cronometro, UpdateStageBadge() tambem cria
+        // um lv_obj_t e SetupUI() ainda nao rodou aqui.
+        Tamagotchi::GetInstance().SetOnEvolved([this](TamaStage) { UpdateStageBadge(); });
+
         mcp_tools::RegisterAll();
 
         // Aplica o brilho/volume salvos ja na partida -- sem isso, o
@@ -385,6 +408,10 @@ public:
         SetNetworkEventCallback([this](NetworkEvent event, const std::string& data) {
             if (event == NetworkEvent::Connected) {
                 ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
+                // Primeira vez que temos garantia de que SetupUI() ja
+                // rodou -- mostra o estagio que o bichinho ja tinha
+                // (carregado do NVS), sem esperar a proxima evolucao.
+                UpdateStageBadge();
             }
         });
     }
