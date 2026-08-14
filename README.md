@@ -1,5 +1,12 @@
 # muma-board v3 — perfil aberto (nome + idade, não perfis fixos)
 
+> **Quer só compilar e testar?** Já existe um clone pronto do
+> `78/xiaozhi-esp32` com estes arquivos mesclados dentro dele:
+> [bernardobbs/Numa-firmware](https://github.com/bernardobbs/Numa-firmware)
+> (ver `FLASHING.md` lá pro passo a passo de build/flash/teste). Este
+> repo aqui é o histórico de desenvolvimento das features -- não
+> precisa fazer a mesclagem manual, ela já está feita.
+
 Arquivos pra `main/boards/spotpear/sp-esp32-s3-1.54-muma/` no clone do
 `78/xiaozhi-esp32`. Essa pasta já existe lá (hardware puro: display,
 touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
