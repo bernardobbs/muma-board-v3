@@ -26,6 +26,11 @@ public:
     // Emitido a cada segundo enquanto rodando -- pra atualizar o label do
     // cronometro na tela sem a UI precisar de timer proprio.
     void SetOnTick(std::function<void(int)> cb) { on_tick_ = cb; }
+    // Emitido SO quando a pausa termina naturalmente (chegou a zero),
+    // nunca quando Stop() interrompe -- diferente de SetOnPhaseChanged,
+    // que dispara IDLE nos dois casos e nao da pra distinguir um do
+    // outro. Usado pro bonus de "cumpriu a pausa".
+    void SetOnBreakCompleted(std::function<void()> cb) { on_break_completed_ = cb; }
 
 private:
     PomodoroEngine() = default;
@@ -43,4 +48,5 @@ private:
 
     std::function<void(PomodoroState)> on_phase_changed_;
     std::function<void(int)> on_tick_;
+    std::function<void()> on_break_completed_;
 };

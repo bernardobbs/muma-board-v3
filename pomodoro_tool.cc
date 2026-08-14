@@ -104,6 +104,10 @@ void PomodoroEngine::Tick() {
             EnterPhase(PomodoroState::BREAK, break_seconds_);
         } else if (state_ == PomodoroState::BREAK) {
             EnterIdle();
+            // So dispara aqui -- pausa chegou ao fim sozinha. Stop()
+            // tambem leva pra IDLE, mas nao passa por aqui, entao nunca
+            // aciona esse bonus (interromper nao e "cumprir a pausa").
+            if (on_break_completed_) on_break_completed_();
         }
     }
 }

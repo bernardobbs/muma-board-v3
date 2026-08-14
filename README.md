@@ -136,6 +136,12 @@ O que falta é só a **arte por espécie**:
 
 ## Resolvido nesta passada
 
+- **Bônus por cumprir a pausa**: `Tamagotchi::OnBreakRespected()` (+1
+  ponto) existia mas nunca era chamado -- código morto. Agora
+  `PomodoroEngine::SetOnBreakCompleted()` dispara SÓ quando a pausa
+  termina sozinha (nunca via `Stop()`, que continua sem penalidade nem
+  bônus), então dá pra distinguir "cumpriu o ciclo todo" de
+  "interrompeu no meio".
 - **Integração com o board real aplicada**: `sp-esp32-s3-1.54-muma.cc`
   (raiz deste repo) é o arquivo completo do board com
   `InitializeFamilyFeatures()` chamado no construtor e

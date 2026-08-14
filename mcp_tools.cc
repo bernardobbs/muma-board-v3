@@ -23,11 +23,15 @@ static void WireEngines() {
         switch (state) {
             case PomodoroState::STUDY:   tama.SetMood(TamaMood::FOCADO); break;
             case PomodoroState::WARNING: tama.SetMood(TamaMood::AVISO); break;
-            case PomodoroState::BREAK:   tama.OnPomodoroCompleted(); break;   // +1 ponto
+            case PomodoroState::BREAK:   tama.OnPomodoroCompleted(); break;   // +1 ponto por completar o foco
             case PomodoroState::IDLE:    tama.SetMood(TamaMood::NEUTRO); break;
             case PomodoroState::PAUSED:  break;
         }
     });
+
+    // +1 ponto extra por CUMPRIR a pausa (nao pular direto pra outro
+    // foco) -- so dispara quando a pausa termina sozinha, nunca com Stop().
+    pomo.SetOnBreakCompleted([&tama]() { tama.OnBreakRespected(); });
 
     // Tarefa concluida vira ponto
     routine.SetOnTaskDone([&tama](const RoutineTask& t) {
