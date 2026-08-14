@@ -99,13 +99,32 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
 
 ## O que ainda não existe (herdado da v2, sem mudança)
 
-1. GIFs (arte por humor/estágio)
-2. Label do cronômetro na tela
-3. Selo de estágio (2ª camada visual)
-4. Sincronização com Google Sheets
-5. Biblioteca de estratégias portada pro ESP-IDF (existe só no
+1. Label do cronômetro na tela
+2. Selo de estágio (2ª camada visual)
+3. Sincronização com Google Sheets
+4. Biblioteca de estratégias portada pro ESP-IDF (existe só no
    `family-firmware` Arduino)
-6. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
+5. Basic Auth em HTTP puro -- ok em rede doméstica, não exponha à internet
+
+## GIFs do bichinho: infraestrutura pronta, arte pendente
+
+Confirmado no `assets.bin` real do aparelho e no código do board
+(`main/display/lcd_display.cc`): o rosto já reage ao humor **sem
+nenhum GIF customizado** (usa o pacote padrão de 21 emoções estáticas
+que já vem no aparelho). GIF animado de verdade também funciona nessa
+placa -- o `LcdDisplay` detecta os bytes mágicos "GIF" e anima sozinho
+via `LvglGif`, sem precisar de nenhum player customizado.
+
+O que falta é só a **arte por espécie**:
+
+1. Gere os `.gif` (`pet_gifs/<especie>_<humor>.gif`, uma por espécie×humor)
+   -- ver os scripts de geração via Stable Diffusion no chat.
+2. Rode `python3 scripts/gen_pet_emoji_collection.py` pra empacotar
+   os GIFs em `pet_emoji_collection.cc` (vira array de bytes C, pego
+   pelo `file(GLOB)` do board como qualquer outro `.cc`).
+3. Sem GIFs em `pet_gifs/`, `CreatePetEmojiCollection()` devolve
+   `nullptr` e o aparelho usa o pacote padrão -- nunca trava por falta
+   de arte.
 
 ## Resolvido nesta passada
 
@@ -124,6 +143,13 @@ esquecer de atualizar os dois lados quando alguma coisa muda.
   `"thinking"`, `"surprised"`, `"funny"`...) e já é reconhecido pelos
   pacotes de emoji embutidos (ex.: `noto-color-emoji_32`, já escolhido
   pra essa placa) — sem precisar de GIF customizado nenhum.
+- **Plumbing pra GIF customizado por espécie**: `pet_emoji_collection.h/.cc`
+  (o `.cc` é gerado por `scripts/gen_pet_emoji_collection.py` a partir
+  de `pet_gifs/<especie>_<humor>.gif`) e o board troca a coleção de
+  emoji ao trocar de espécie (`ApplyPetEmojiCollection`, ligado no
+  `SetOnSpeciesChanged`). Ainda sem arte gerada -- por enquanto
+  `CreatePetEmojiCollection` sempre devolve `nullptr` e o pacote padrão
+  continua valendo.
 - **HTML das páginas não depende mais de `EMBED_TXTFILES`**: o build
   real do `xiaozhi-esp32` não tem esse gancho por board (só um
   `idf_component_register` único pro projeto inteiro). O conteúdo de

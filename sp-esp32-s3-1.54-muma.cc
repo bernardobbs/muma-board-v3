@@ -35,12 +35,25 @@
 #include "semaphore_tool.h"
 #include "mcp_tools.h"
 #include "config_server.h"
+#include "pet_emoji_collection.h"
+#include "display/lvgl_display/lvgl_theme.h"
 
 #define TAG "Spotpear_esp32_s3_lcd_1_54"
 
 // TROQUEM por uma senha de verdade antes de flashear -- ver
 // ConfigServer::RequireAdmin: sem senha, /admin fica 403 pra sempre.
 #define FAMILY_ADMIN_PASSWORD "SENHA-QUE-VOCES-ESCOLHEREM"
+
+// So troca a colecao de emoji se a especie tiver GIFs de verdade
+// (pet_emoji_collection.cc); senao mantem o pacote padrao, que ja
+// funciona sozinho com as chaves de humor padrao do xiaozhi.
+static void ApplyPetEmojiCollection(const std::string& species_id) {
+    auto collection = CreatePetEmojiCollection(species_id);
+    if (collection == nullptr) return;
+    auto& theme_manager = LvglThemeManager::GetInstance();
+    if (auto* light = theme_manager.GetTheme("light")) light->set_emoji_collection(collection);
+    if (auto* dark = theme_manager.GetTheme("dark")) dark->set_emoji_collection(collection);
+}
 
 class Cst816d : public I2cDevice {
 public:
@@ -292,11 +305,22 @@ private:
 
         // Humor do bichinho -> emoji na tela. As chaves de MoodName() ja
         // seguem o vocabulario padrao do xiaozhi (neutral/happy/thinking/
-        // surprised/funny), entao isso funciona com os pacotes de emoji
-        // embutidos, sem GIF customizado.
+        // surprised/funny), entao isso funciona com o pacote de emoji
+        // padrao mesmo sem nenhum GIF customizado -- e SE a especie
+        // escolhida tiver GIFs proprios (pet_emoji_collection.cc), eles
+        // substituem o rosto generico automaticamente.
         Tamagotchi::GetInstance().SetOnMoodChanged([this](const std::string& mood) {
             GetDisplay()->SetEmotion(mood.c_str());
         });
+
+        // Trocou de especie -> troca a colecao de emoji tambem, se essa
+        // especie tiver GIFs proprios. CreatePetEmojiCollection devolve
+        // nullptr pra especies sem GIF ainda -- nesse caso NAO troca
+        // nada, e o pacote padrao (rosto generico) continua valendo.
+        Tamagotchi::GetInstance().SetOnSpeciesChanged([](const std::string& id) {
+            ApplyPetEmojiCollection(id);
+        });
+        ApplyPetEmojiCollection(Tamagotchi::GetInstance().species_id());  // especie ja salva, se houver
 
         // Cronometro na tela (label do pomodoro): ainda pendente -- falta
         // um metodo tipo UpdatePomodoroLabel(s) nesta classe pra receber
