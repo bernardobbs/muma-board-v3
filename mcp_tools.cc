@@ -53,6 +53,14 @@ static void WireEngines() {
         Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
     });
 
+    // Bonus extra por voltar ao foco dentro da janela configurada em
+    // /admin (DeviceConfig::quick_return_minutes) -- incentivo pra nao
+    // deixar o tempo passar depois da pausa.
+    pomo.SetOnQuickReturn([&tama]() {
+        tama.AddCustomPoints(1, "Voltou ao foco rapido");
+        Application::GetInstance().PlaySound(Lang::Sounds::OGG_SUCCESS);
+    });
+
     // Tarefa concluida vira ponto
     routine.SetOnTaskDone([&tama](const RoutineTask& t) {
         tama.AddCustomPoints(t.points, t.label);

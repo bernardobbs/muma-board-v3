@@ -32,11 +32,12 @@ void PomodoroEngine::Initialize() {
 void PomodoroEngine::ReloadRules() {
     // Antes as duracoes eram `constexpr` -- mudar exigia recompilar.
     auto& cfg = DeviceConfig::GetInstance();
-    study_seconds_   = cfg.study_minutes() * 60;
-    break_seconds_   = cfg.break_minutes() * 60;
-    warning_seconds_ = cfg.warning_seconds();
-    ESP_LOGI(TAG, "Regras: foco %ds, pausa %ds, aviso %ds antes",
-             study_seconds_, break_seconds_, warning_seconds_);
+    study_seconds_        = cfg.study_minutes() * 60;
+    break_seconds_        = cfg.break_minutes() * 60;
+    warning_seconds_      = cfg.warning_seconds();
+    quick_return_seconds_ = cfg.quick_return_minutes() * 60;
+    ESP_LOGI(TAG, "Regras: foco %ds, pausa %ds, aviso %ds antes, volta rapida em %ds",
+             study_seconds_, break_seconds_, warning_seconds_, quick_return_seconds_);
 }
 
 void PomodoroEngine::EnterPhase(PomodoroState phase, int seconds) {
@@ -56,6 +57,20 @@ void PomodoroEngine::EnterIdle() {
 
 void PomodoroEngine::Start() {
     if (state_ != PomodoroState::IDLE) { ESP_LOGI(TAG, "Ja em andamento"); return; }
+
+    // Bonus de "volta rapida": so conta se a ULTIMA pausa foi cumprida
+    // (break_completed_at_us_ setado em Tick(), nunca em Stop()) e o
+    // foco novo comecou dentro da janela configurada. Consumido aqui --
+    // um Start() so pode disparar o bonus uma vez por pausa cumprida,
+    // mesmo que a crianca de Stop() e Start() de novo varias vezes.
+    if (break_completed_at_us_ >= 0) {
+        int64_t elapsed = esp_timer_get_time() - break_completed_at_us_;
+        if (elapsed <= (int64_t)quick_return_seconds_ * 1000000) {
+            if (on_quick_return_) on_quick_return_();
+        }
+        break_completed_at_us_ = -1;
+    }
+
     EnterPhase(PomodoroState::STUDY, study_seconds_);
 }
 
@@ -107,6 +122,7 @@ void PomodoroEngine::Tick() {
             // So dispara aqui -- pausa chegou ao fim sozinha. Stop()
             // tambem leva pra IDLE, mas nao passa por aqui, entao nunca
             // aciona esse bonus (interromper nao e "cumprir a pausa").
+            break_completed_at_us_ = esp_timer_get_time();  // abre a janela do bonus de volta rapida
             if (on_break_completed_) on_break_completed_();
         }
     }

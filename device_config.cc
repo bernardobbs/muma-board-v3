@@ -20,6 +20,7 @@ void DeviceConfig::Load() {
     study_min_   = s.GetInt("study_min",  ad.study_min);
     break_min_   = s.GetInt("break_min",  ad.break_min);
     warning_sec_ = s.GetInt("warn_sec",   ad.warning_sec);
+    quick_return_min_ = s.GetInt("quick_return", 5);
     daily_cap_   = s.GetInt("daily_cap",  ad.daily_cap);
     stage2_      = s.GetInt("stage2",     ad.stage2);
     stage3_      = s.GetInt("stage3",     ad.stage3);
@@ -48,6 +49,12 @@ void DeviceConfig::set_pomodoro(int study_min, int break_min) {
     s.SetInt("study_min", study_min_);
     s.SetInt("break_min", break_min_);
     if (on_pomodoro_rules_) on_pomodoro_rules_();
+}
+
+void DeviceConfig::set_quick_return_minutes(int minutes) {
+    quick_return_min_ = Clamp(minutes, kMinQuickReturnMin, kMaxQuickReturnMin);
+    Settings s(NS, true);
+    s.SetInt("quick_return", quick_return_min_);
 }
 
 void DeviceConfig::set_warning_seconds(int seconds) {
@@ -155,6 +162,7 @@ std::string DeviceConfig::ToAdminJson() const {
     cJSON_AddNumberToObject(r, "study_min", study_min_);
     cJSON_AddNumberToObject(r, "break_min", break_min_);
     cJSON_AddNumberToObject(r, "warn_sec", warning_sec_);
+    cJSON_AddNumberToObject(r, "quick_return", quick_return_min_);
     cJSON_AddNumberToObject(r, "daily_cap", daily_cap_);
     cJSON_AddNumberToObject(r, "stage2", stage2_);
     cJSON_AddNumberToObject(r, "stage3", stage3_);

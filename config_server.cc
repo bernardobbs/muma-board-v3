@@ -398,6 +398,9 @@ esp_err_t ConfigServer::PostAdminConfig(httpd_req_t* req) {
     cJSON* warn = cJSON_GetObjectItem(root, "warn_sec");
     if (cJSON_IsNumber(warn)) cfg.set_warning_seconds(warn->valueint);
 
+    cJSON* quick_return = cJSON_GetObjectItem(root, "quick_return");
+    if (cJSON_IsNumber(quick_return)) cfg.set_quick_return_minutes(quick_return->valueint);
+
     cJSON* y_on = cJSON_GetObjectItem(root, "y_on");
     cJSON* r_on = cJSON_GetObjectItem(root, "r_on");
     cJSON* y_auto = cJSON_GetObjectItem(root, "y_auto");

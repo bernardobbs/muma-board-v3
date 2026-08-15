@@ -23,6 +23,12 @@ public:
     void set_pomodoro(int study_min, int break_min);
     void set_warning_seconds(int seconds);
 
+    // Bonus por voltar ao foco logo depois de uma pausa CUMPRIDA (nao
+    // interrompida) -- incentivo pra ela nao deixar o tempo passar
+    // depois da pausa. Ver PomodoroEngine::Start().
+    int quick_return_minutes() const { return quick_return_min_; }
+    void set_quick_return_minutes(int minutes);
+
     // --- tamagotchi ---
     int daily_point_cap() const { return daily_cap_; }
     int stage2() const { return stage2_; }
@@ -63,15 +69,18 @@ public:
 
     // Faixa segura que ela pode ajustar sozinha
     static constexpr int kMinStudyMin = 10;
-    static constexpr int kMaxStudyMin = 40;
+    static constexpr int kMaxStudyMin = 50;
     static constexpr int kMinBreakMin = 2;
     static constexpr int kMaxBreakMin = 15;
+    static constexpr int kMinQuickReturnMin = 1;
+    static constexpr int kMaxQuickReturnMin = 30;
 
 private:
     DeviceConfig() = default;
     static int Clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
     int study_min_ = 25, break_min_ = 5, warning_sec_ = 120;
+    int quick_return_min_ = 5;
     int daily_cap_ = 8, stage2_ = 5, stage3_ = 15, stage4_ = 30;
     bool notify_yellow_ = false, notify_red_ = true;
     bool auto_yellow_ = false, auto_red_ = true;

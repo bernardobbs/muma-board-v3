@@ -31,6 +31,12 @@ public:
     // que dispara IDLE nos dois casos e nao da pra distinguir um do
     // outro. Usado pro bonus de "cumpriu a pausa".
     void SetOnBreakCompleted(std::function<void()> cb) { on_break_completed_ = cb; }
+    // Emitido quando ela inicia um novo foco DENTRO da janela de "volta
+    // rapida" depois da ultima pausa CUMPRIDA (nunca apos Stop() --
+    // mesma logica de SetOnBreakCompleted, pra nao dar pra ganhar o
+    // bonus so reiniciando o ciclo no meio). So dispara uma vez por
+    // pausa cumprida (ver Start()).
+    void SetOnQuickReturn(std::function<void()> cb) { on_quick_return_ = cb; }
 
 private:
     PomodoroEngine() = default;
@@ -43,10 +49,13 @@ private:
     esp_timer_handle_t timer_ = nullptr;
     PomodoroState state_ = PomodoroState::IDLE;
     int64_t phase_start_us_ = 0, phase_duration_us_ = 0, paused_remaining_us_ = 0;
+    int64_t break_completed_at_us_ = -1;  // -1 = nenhuma pausa cumprida pendente de bonus
     bool warning_fired_ = false;
     int study_seconds_ = 25 * 60, break_seconds_ = 5 * 60, warning_seconds_ = 120;
+    int quick_return_seconds_ = 5 * 60;
 
     std::function<void(PomodoroState)> on_phase_changed_;
     std::function<void(int)> on_tick_;
     std::function<void()> on_break_completed_;
+    std::function<void()> on_quick_return_;
 };

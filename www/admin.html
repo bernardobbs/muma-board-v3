@@ -53,8 +53,10 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
     <div><label>Pontos p/ Filhote</label><input type="number" id="s2"></div>
     <div><label>Pontos p/ Jovem</label><input type="number" id="s3"></div>
     <div><label>Pontos p/ Forte</label><input type="number" id="s4"></div>
+    <div><label>Volta ao foco em até (min)</label><input type="number" id="quickReturn"></div>
   </div>
   <p class="hint">Progresso nunca regride — não há como zerar pontos por aqui, e isso é proposital.</p>
+  <p class="hint">"Volta ao foco": ponto bônus se ela iniciar um novo ciclo dentro desse tempo depois de cumprir uma pausa até o fim (não conta se ela parar o ciclo no meio e recomeçar).</p>
 </div>
 
 <div class="card">
@@ -131,6 +133,7 @@ $("#saveCfg").onclick=async()=>{
   const body={nome:$("#cname").value,data_nascimento:$("#cbirth").value,
     regulacao_ativa:$("#regOn").checked,
     daily_cap:+$("#cap").value,warn_sec:+$("#warn").value,
+    quick_return:+$("#quickReturn").value,
     stage2:+$("#s2").value,stage3:+$("#s3").value,stage4:+$("#s4").value,
     y_on:$("#yon").checked,r_on:$("#ron").checked,y_auto:$("#yauto").checked,r_auto:$("#rauto").checked,
     ntfy_srv:$("#nsrv").value,ntfy_top:$("#ntop").value,tz:$("#tz").value};
@@ -147,6 +150,7 @@ async function loadCfg(){
     ? c.idade+" anos -- os valores abaixo foram sugeridos com base nessa idade, mas edite à vontade."
     : "Data de nascimento não confirmada ainda, ou relógio do aparelho não sincronizou.";
   $("#cap").value=c.daily_cap;$("#warn").value=c.warn_sec;
+  $("#quickReturn").value=c.quick_return;
   $("#s2").value=c.stage2;$("#s3").value=c.stage3;$("#s4").value=c.stage4;
   $("#yon").checked=c.y_on;$("#ron").checked=c.r_on;
   $("#yauto").checked=c.y_auto;$("#rauto").checked=c.r_auto;
