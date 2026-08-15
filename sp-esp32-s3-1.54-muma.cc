@@ -25,6 +25,7 @@
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 #include <cstdio>
+#include <ctime>
 #include <esp_netif.h>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
@@ -474,6 +475,23 @@ private:
         ESP_LOGI(TAG, "CheckNetworkReady: estado idle detectado, subindo ConfigServer");
         ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
         board.UpdateStageBadge();  // mostra o estagio ja salvo, sem esperar a proxima evolucao
+
+        // Diagnostico do horario: este fork NAO usa NTP -- o relogio vem
+        // de "server_time" (timestamp + timezone_offset) que o backend
+        // devolve na ativacao (ver Ota::CheckVersion em main/ota.cc,
+        // settimeofday()). Risco real: se o servidor JA aplicar o
+        // timezone_offset no timestamp, e a nossa propria TZ (ver
+        // DeviceConfig::ApplyTimezone) aplicar de novo via localtime_r,
+        // o horario fica deslocado em dobro. So compilando e comparando
+        // com o relogio real dá pra confirmar -- por isso este log.
+        time_t now = time(nullptr);
+        struct tm ti;
+        localtime_r(&now, &ti);
+        char time_buf[32];
+        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &ti);
+        ESP_LOGI(TAG, "Horario local calculado pelo aparelho: %s -- compare com o relogio real",
+                 time_buf);
+
         esp_timer_stop(board.network_check_timer_);
     }
 
