@@ -295,7 +295,13 @@ private:
             lv_label_set_text(pomodoro_label_, "");
             return;
         }
-        char buf[8];
+        // buf[16], nao buf[8]: na pratica "MM:SS" nunca passa de 5 chars
+        // (pomodoro clampado a kMaxStudyMin=40min), mas o GCC (com
+        // -Werror=format-truncation) calcula o pior caso teorico pra um
+        // int generico, que passa de 8 bytes -- warning tratado como
+        // erro no build. 16 bytes elimina o warning sem mudar nada em
+        // tempo de execucao.
+        char buf[16];
         snprintf(buf, sizeof(buf), "%d:%02d", seconds_remaining / 60, seconds_remaining % 60);
         lv_label_set_text(pomodoro_label_, buf);
     }
