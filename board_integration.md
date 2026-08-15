@@ -151,6 +151,27 @@ merge upstream do fork conflitar com essas mudanças):
   `OGG_POMODORO_FOCUS_DONE`/`OGG_POMODORO_BREAK_DONE` gerados fora do
   firmware) -- revertida por decisão de manter simples, sem depender de
   gerar/instalar áudio novo.
+- **Semáforo de sobrecarga ajustável pela página dela também**: antes só
+  dava pra mudar de nível por voz (`self.semaphore.*` em `mcp_tools.cc`)
+  -- `/` era só leitura (mostrava as regras de aviso aos pais, nunca o
+  nível nem um jeito de mudar). Agora `www/index.html` tem um card
+  "Semáforo" com os 3 botões (verde/amarelo/vermelho) e a confirmação de
+  envio quando pendente, batendo com os 4 endpoints novos em
+  `config_server.cc`: `GET /api/semaphore` (status, sempre liberado --
+  só leitura) e `POST /api/semaphore/set|confirm|cancel` (mutam,
+  **gated por `ChildProfile::regulation_tools_enabled()`**, checado a
+  cada chamada -- mesmo padrão das tools de voz, pra ligar/desligar em
+  `/admin` valer na hora sem reiniciar). O card inteiro fica
+  `display:none` até `/api/config` confirmar `regulacao_ativa: true`
+  (mesmo campo que já existia, exposto em `DeviceConfig::ToJson()`) --
+  sem senha nenhuma aqui, é sobre COMO ela usa, não uma regra dos
+  responsáveis (mesma lógica dos alarmes). Poll a cada 3s
+  (`loadSemaphore`) só liga quando o card aparece, pra pegar uma
+  confirmação pendente que tenha surgido por voz enquanto ela está com
+  a página aberta. Editar `www/index.html` sempre exige rodar
+  `python3 scripts/gen_web_assets.py` depois -- é ele que gera
+  `web_assets.cc` (o HTML vira string C++ embutida, ver comentário no
+  próprio arquivo pra entender por quê).
 
   Efeito colateral aceito: o bônus de "voltar rápido da pausa"
   (`SetOnQuickReturn`, `DeviceConfig::quick_return_minutes`) ficou

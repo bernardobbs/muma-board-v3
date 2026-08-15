@@ -51,6 +51,15 @@ private:
     // Cantinho da calma: acionado pela propria crianca, sem senha.
     static esp_err_t PostBreathingStart(httpd_req_t* req);
     static esp_err_t PostBreathingStop(httpd_req_t* req);
+    // Semaforo de sobrecarga: quem sinaliza o nivel e SEMPRE a propria
+    // crianca (por voz ou aqui na pagina dela) -- por isso sem senha,
+    // igual as tools MCP self.semaphore.*. Gated por
+    // ChildProfile::regulation_tools_enabled(), checado a cada chamada
+    // (nao so no boot), pra ligar/desligar em /admin valer na hora.
+    static esp_err_t GetSemaphore(httpd_req_t* req);
+    static esp_err_t PostSemaphoreSet(httpd_req_t* req);
+    static esp_err_t PostSemaphoreConfirm(httpd_req_t* req);
+    static esp_err_t PostSemaphoreCancel(httpd_req_t* req);
     // --- area de voces ---
     static esp_err_t GetRoutineDef(httpd_req_t* req);
     static esp_err_t PostRoutineDef(httpd_req_t* req);

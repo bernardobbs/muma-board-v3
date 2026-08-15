@@ -108,6 +108,23 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
   <div class="ok" id="okMsg"></div>
 </div>
 
+<div class="card" id="semCard" style="display:none">
+  <h2>Semáforo</h2>
+  <p class="sub" style="margin:0 0 10px">Como você está se sentindo agora?</p>
+  <div class="btns">
+    <button id="semVerde">🟢 Verde</button>
+    <button id="semAmarelo">🟡 Amarelo</button>
+    <button id="semVermelho">🔴 Vermelho</button>
+  </div>
+  <div class="note" id="semPending" style="display:none;margin-top:12px">
+    Quer avisar seus pais sobre isso?
+    <div class="btns" style="margin-top:8px">
+      <button class="pri" id="semConfirm">Sim, avisar</button>
+      <button id="semCancel">Não, obrigado</button>
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <h2>Aviso pros seus pais</h2>
   <div class="note" id="alertNote">Carregando…</div>
@@ -209,7 +226,30 @@ async function loadConfig(){
   $("#alertNote").textContent=on.length
     ? "Quando você sinalizar "+on.join(" ou ")+", seus pais recebem um aviso. Só eles podem mudar isso."
     : "Nenhum aviso automático está ligado agora.";
+
+  // Semaforo so aparece se os responsaveis ligaram em /admin -- mesmo
+  // gate que as tools de voz self.semaphore.* usam.
+  if(c.regulacao_ativa){
+    $("#semCard").style.display="";
+    loadSemaphore();
+    if(!semPoll)semPoll=setInterval(loadSemaphore,3000);
+  }
 }
+
+const SEM_BTN={verde:"semVerde",amarelo:"semAmarelo",vermelho:"semVermelho"};
+let semPoll=null;
+async function loadSemaphore(){
+  const s=await get("/api/semaphore");
+  Object.entries(SEM_BTN).forEach(([nivel,id])=>{
+    $("#"+id).classList.toggle("pri",nivel===s.nivel);
+  });
+  $("#semPending").style.display=s.pendente?"block":"none";
+}
+Object.entries(SEM_BTN).forEach(([nivel,id])=>{
+  $("#"+id).onclick=async()=>{await post("/api/semaphore/set",{nivel});loadSemaphore()};
+});
+$("#semConfirm").onclick=async()=>{await post("/api/semaphore/confirm",{});loadSemaphore()};
+$("#semCancel").onclick=async()=>{await post("/api/semaphore/cancel",{});loadSemaphore()};
 
 [["study","vStudy"],["brk","vBreak"],["bright","vBright"],["vol","vVol"]].forEach(([id,lbl])=>{
   $("#"+id).oninput=e=>$("#"+lbl).textContent=e.target.value;

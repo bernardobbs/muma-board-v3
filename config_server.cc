@@ -87,6 +87,10 @@ void ConfigServer::RegisterHandlers() {
     Register("/api/alarms/update", HTTP_POST, PostAlarmUpdate);
     Register("/api/breathing/start", HTTP_POST, PostBreathingStart);
     Register("/api/breathing/stop",  HTTP_POST, PostBreathingStop);
+    Register("/api/semaphore",         HTTP_GET,  GetSemaphore);
+    Register("/api/semaphore/set",     HTTP_POST, PostSemaphoreSet);
+    Register("/api/semaphore/confirm", HTTP_POST, PostSemaphoreConfirm);
+    Register("/api/semaphore/cancel",  HTTP_POST, PostSemaphoreCancel);
     // area de voces (com senha)
     Register("/admin",             HTTP_GET,  GetAdminPage);
     Register("/api/admin/routine", HTTP_GET,  GetRoutineDef);
@@ -347,6 +351,44 @@ esp_err_t ConfigServer::PostBreathingStart(httpd_req_t* req) {
 
 esp_err_t ConfigServer::PostBreathingStop(httpd_req_t* req) {
     BreathingExercise::GetInstance().Stop();
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::GetSemaphore(httpd_req_t* req) {
+    return SendJson(req, OverloadSemaphore::GetInstance().StatusJson());
+}
+
+esp_err_t ConfigServer::PostSemaphoreSet(httpd_req_t* req) {
+    if (!ChildProfile::GetInstance().regulation_tools_enabled())
+        return SendBadRequest(req, "ferramenta de regulacao desligada nas configuracoes");
+    std::string body;
+    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
+    cJSON* nivel = cJSON_GetObjectItem(root, "nivel");
+    std::string v = cJSON_IsString(nivel) ? nivel->valuestring : "";
+    cJSON_Delete(root);
+
+    auto& sem = OverloadSemaphore::GetInstance();
+    if (v == "verde") sem.SetLevel(OverloadLevel::VERDE);
+    else if (v == "amarelo") sem.SetLevel(OverloadLevel::AMARELO);
+    else if (v == "vermelho") sem.SetLevel(OverloadLevel::VERMELHO);
+    else return SendBadRequest(req, "nivel invalido -- use verde, amarelo ou vermelho");
+
+    return SendJson(req, sem.StatusJson());
+}
+
+esp_err_t ConfigServer::PostSemaphoreConfirm(httpd_req_t* req) {
+    if (!ChildProfile::GetInstance().regulation_tools_enabled())
+        return SendBadRequest(req, "ferramenta de regulacao desligada nas configuracoes");
+    OverloadSemaphore::GetInstance().ConfirmSend();
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::PostSemaphoreCancel(httpd_req_t* req) {
+    if (!ChildProfile::GetInstance().regulation_tools_enabled())
+        return SendBadRequest(req, "ferramenta de regulacao desligada nas configuracoes");
+    OverloadSemaphore::GetInstance().CancelSend();
     return SendJson(req, "{\"ok\":true}");
 }
 
