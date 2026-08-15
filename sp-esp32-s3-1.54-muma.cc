@@ -25,6 +25,8 @@
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 #include <cstdio>
+#include <esp_event.h>
+#include <esp_netif.h>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
 // board original) ---
@@ -321,6 +323,22 @@ private:
         lv_label_set_text(stage_badge_, Tamagotchi::GetInstance().StageName().c_str());
     }
 
+    // ConfigServer precisa de rede -- so sobe quando o Wi-Fi conectar de
+    // verdade. NAO usamos SetNetworkEventCallback pra isso: descoberto
+    // via log real que Application::Initialize() (main/application.cc)
+    // TAMBEM chama board.SetNetworkEventCallback(...) depois do
+    // construtor do board rodar, pra notificacoes de UI ("Conectando a
+    // Wi-Fi..."). Como e um unico std::function (nao uma lista), essa
+    // chamada SOBRESCREVE silenciosamente qualquer callback que a gente
+    // registre aqui -- sem erro nenhum, so nunca dispara. O evento
+    // nativo do ESP-IDF aceita multiplos handlers e nao tem esse
+    // conflito.
+    static void OnGotIp(void* arg, esp_event_base_t base, int32_t event_id, void* event_data) {
+        auto& board = (Spotpear_esp32_s3_lcd_1_54&)Board::GetInstance();
+        ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
+        board.UpdateStageBadge();  // mostra o estagio ja salvo, sem esperar a proxima evolucao
+    }
+
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
             auto& app = Application::GetInstance();
@@ -409,17 +427,10 @@ public:
         InitializeFamilyFeatures();
 
         // ConfigServer precisa de rede -- so sobe quando o Wi-Fi conectar
-        // de verdade, nunca aqui no construtor (aqui so registra o
-        // callback; StartNetwork() e chamado depois, pela Application).
-        SetNetworkEventCallback([this](NetworkEvent event, const std::string& data) {
-            if (event == NetworkEvent::Connected) {
-                ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
-                // Primeira vez que temos garantia de que SetupUI() ja
-                // rodou -- mostra o estagio que o bichinho ja tinha
-                // (carregado do NVS), sem esperar a proxima evolucao.
-                UpdateStageBadge();
-            }
-        });
+        // de verdade. Ver OnGotIp() pra explicacao de por que isso NAO
+        // usa SetNetworkEventCallback (a Application tambem usa esse
+        // slot e sobrescreveria o nosso).
+        esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &OnGotIp, nullptr, nullptr);
     }
 
     virtual Led* GetLed() override {
