@@ -104,6 +104,19 @@ merge upstream do fork conflitar com essas mudanças):
   que `SetupUI()` já tenha rodado, e é a única garantia assíncrona que
   temos disso além do próprio tick do pomodoro).
 
+## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
+
+Achado testando em hardware real: o `file(GLOB boards/${BOARD_DIR}/*.cc)`
+do `main/CMakeLists.txt` só é avaliado quando o CMake reconfigura, não a
+cada `idf.py build`. Editar um arquivo que já existe funciona com build
+normal; mas ao adicionar um `.cc` novo na pasta do board (ex:
+`alarm_tool.cc`, `pomodoro_tomato.cc`), um `idf.py build` direto falha
+no LINK com "undefined reference" pras funções desse arquivo -- o
+ninja nem sabe que o arquivo existe, porque a lista de fontes ficou
+cacheada de antes dele existir. Rode `idf.py reconfigure` (mais rápido
+que `fullclean`, só refaz o passo de configuração) antes do `build`
+sempre que um arquivo novo for adicionado.
+
 ## Senha de admin
 
 `FAMILY_ADMIN_PASSWORD` no topo do `.cc` ainda é o placeholder
