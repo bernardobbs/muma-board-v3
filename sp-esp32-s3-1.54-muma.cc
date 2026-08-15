@@ -27,6 +27,7 @@
 #include <cstdio>
 #include <ctime>
 #include <esp_netif.h>
+#include <esp_heap_caps.h>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
 // board original) ---
@@ -42,6 +43,7 @@
 #include "config_server.h"
 #include "pet_emoji_collection.h"
 #include "pomodoro_tomato.h"
+#include "mumaqr.h"
 #include "display/lvgl_display/lvgl_theme.h"
 
 #define TAG "Spotpear_esp32_s3_lcd_1_54"
@@ -107,7 +109,7 @@ private:
     lv_obj_t* stage_badge_ = nullptr;      // selo de estagio, criado sob demanda
     lv_obj_t* alarm_banner_ = nullptr;     // tela cheia enquanto o alarme toca, criada sob demanda
     lv_obj_t* qr_overlay_ = nullptr;       // tela cheia com QR code, criada sob demanda (toggle no long-press)
-    lv_obj_t* qr_code_ = nullptr;
+    lv_obj_t* qr_canvas_ = nullptr;        // QR desenhado na mao (ver ToggleQrCode) -- nao e o widget lv_qrcode
     lv_obj_t* qr_label_ = nullptr;
     lv_obj_t* breathing_overlay_ = nullptr;  // "cantinho da calma", criado sob demanda
     lv_obj_t* breathing_circle_ = nullptr;
@@ -411,6 +413,13 @@ private:
     // QR code com a URL da pagina dela ("/", sem senha) -- long press no
     // boot_button_ mostra/esconde (ver InitializeButtons). Cobre a tela
     // toda pra ficar grande o suficiente pra escanear de perto.
+    //
+    // Desenhado na mao com mumaqr_* + lv_canvas, NAO com o widget
+    // lv_qrcode da LVGL -- ver comentario no topo de mumaqr.h pro
+    // motivo (conflito de link real com espressif2022__esp_emote_gfx,
+    // que ja embute sua propria copia do mesmo qrcodegen.c).
+    static constexpr int kQrCanvasMax = 200;  // lado maximo do canvas, em px
+
     void ToggleQrCode() {
         DisplayLockGuard lock(display_);
         if (qr_overlay_ != nullptr && !lv_obj_has_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN)) {
@@ -421,6 +430,16 @@ private:
         if (ip.empty()) return;  // sem rede ainda -- nada pra mostrar
         std::string url = "http://" + ip + "/";
 
+        uint8_t qr_tmp[mumaqr_BUFFER_LEN_FOR_VERSION(10)];
+        uint8_t qr_buf[mumaqr_BUFFER_LEN_FOR_VERSION(10)];
+        bool encoded = mumaqr_encodeText(url.c_str(), qr_tmp, qr_buf, mumaqr_Ecc_LOW,
+                                          1, 10, mumaqr_Mask_AUTO, true);
+        if (!encoded) return;  // URL longa demais pra versao 10 -- nao deveria acontecer com um IP
+        int modules = mumaqr_getSize(qr_buf);
+        int scale = kQrCanvasMax / modules;
+        if (scale < 1) scale = 1;
+        int px = modules * scale;
+
         if (qr_overlay_ == nullptr) {
             qr_overlay_ = lv_obj_create(lv_screen_active());
             lv_obj_remove_style_all(qr_overlay_);
@@ -429,17 +448,46 @@ private:
             lv_obj_set_style_bg_opa(qr_overlay_, LV_OPA_COVER, 0);
             lv_obj_center(qr_overlay_);
 
-            qr_code_ = lv_qrcode_create(qr_overlay_);
-            lv_qrcode_set_size(qr_code_, 170);
-            lv_qrcode_set_dark_color(qr_code_, lv_color_black());
-            lv_qrcode_set_light_color(qr_code_, lv_color_white());
-            lv_obj_align(qr_code_, LV_ALIGN_CENTER, 0, -14);
+            // Buffer do canvas, RGB565 (2 bytes/px) -- kQrCanvasMax^2*2
+            // = ~78KB, grande demais pra SRAM interna (a mesma que
+            // sobra so ~85-120KB nos logs reais). Alocado da PSRAM (8MB
+            // disponiveis, mesmo lugar que o cache de imagem do display
+            // ja usa) uma unica vez, nunca liberado -- mesmo ciclo de
+            // vida dos outros lv_obj criados sob demanda neste arquivo.
+            auto* qr_canvas_buf = static_cast<uint16_t*>(
+                heap_caps_malloc(kQrCanvasMax * kQrCanvasMax * sizeof(uint16_t),
+                                  MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT));
+            if (qr_canvas_buf == nullptr) {
+                ESP_LOGE(TAG, "Falha ao alocar buffer do QR code na PSRAM");
+                return;
+            }
+            qr_canvas_ = lv_canvas_create(qr_overlay_);
+            lv_canvas_set_buffer(qr_canvas_, qr_canvas_buf, kQrCanvasMax, kQrCanvasMax,
+                                  LV_COLOR_FORMAT_RGB565);
+            lv_obj_align(qr_canvas_, LV_ALIGN_CENTER, 0, -14);
 
             qr_label_ = lv_label_create(qr_overlay_);
             lv_obj_set_style_text_color(qr_label_, lv_color_black(), 0);
             lv_obj_align(qr_label_, LV_ALIGN_BOTTOM_MID, 0, -8);
         }
-        lv_qrcode_update(qr_code_, url.c_str(), url.size());
+
+        // Desenha centralizado dentro do canvas (tamanho fixo
+        // kQrCanvasMax) em vez de redimensionar o widget -- mais
+        // simples e sem depender de como lv_canvas reage a
+        // lv_obj_set_size depois de lv_canvas_set_buffer.
+        int off = (kQrCanvasMax - px) / 2;
+        lv_canvas_fill_bg(qr_canvas_, lv_color_white(), LV_OPA_COVER);
+        for (int y = 0; y < modules; y++) {
+            for (int x = 0; x < modules; x++) {
+                if (!mumaqr_getModule(qr_buf, x, y)) continue;
+                for (int dy = 0; dy < scale; dy++) {
+                    for (int dx = 0; dx < scale; dx++) {
+                        lv_canvas_set_px(qr_canvas_, off + x * scale + dx, off + y * scale + dy,
+                                          lv_color_black(), LV_OPA_COVER);
+                    }
+                }
+            }
+        }
         lv_label_set_text(qr_label_, url.c_str());
         lv_obj_clear_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN);
     }

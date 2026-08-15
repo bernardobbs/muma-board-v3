@@ -113,12 +113,19 @@ merge upstream do fork conflitar com essas mudanças):
   alarmes baterem no mesmo minuto, o segundo dispara só depois que o
   primeiro for desligado (checagem de `firing_` no topo de `Check()`).
 - **QR code pra achar a página sem digitar IP**: segurar o `boot_button_`
-  (`OnLongPress`) mostra/esconde um `lv_qrcode` de tela cheia com
+  (`OnLongPress`) mostra/esconde um QR code de tela cheia com
   `http://<ip>/`. O IP vem direto de `esp_netif_get_ip_info` (netif
   `"WIFI_STA_DEF"`), sem depender de nenhum getter do componente de
-  wifi. Precisa de `CONFIG_LV_USE_QRCODE=y` em `sdkconfig.defaults` do
-  projeto base -- widget desligado por padrão no Kconfig do LVGL, ver
-  `README.md` seção de integração.
+  wifi. **Desenhado na mão** com `mumaqr_encodeText`/`mumaqr_getModule`
+  (`mumaqr.h`/`.cc`, cópia renomeada do gerador de QR já usado pela
+  LVGL) + `lv_canvas` -- NÃO usa o widget `lv_qrcode` da própria LVGL.
+  Motivo, confirmado em build real: ligar `CONFIG_LV_USE_QRCODE=y` dá
+  "multiple definition of qrcodegen_makeEci" contra o `qrcodegen.c` que
+  o componente `espressif2022__esp_emote_gfx` (Expression Emote,
+  já presente no projeto base) embute por conta própria -- duas cópias
+  do mesmo gerador terceirizado colidindo no link. Renomear todos os
+  identificadores pra `mumaqr_*` evita esse conflito de vez, sem
+  depender de nenhuma opção de Kconfig. Ver `README.md` seção 7.
 - **Selo de estágio**: `UpdateStageBadge()` mostra `Tamagotchi::StageName()`
   ("Ovo"/"Filhote"/"Jovem"/"Forte") como texto puro no canto inferior
   direito (`LV_ALIGN_BOTTOM_RIGHT`, também livre). Texto, não emoji --

@@ -41,11 +41,17 @@ touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
    `python3 scripts/gen_web_assets.py` pra regenerar `web_assets.cc`.
 6. Depois de editar `pomodoro_tomato.png`, rode
    `python3 scripts/gen_pomodoro_tomato.py` pra regenerar `pomodoro_tomato.cc`.
-7. **QR code (ToggleQrCode, long-press no botão) precisa de
-   `CONFIG_LV_USE_QRCODE=y` em `sdkconfig.defaults` do projeto base** --
-   o widget vem desligado por padrão no Kconfig do LVGL. Sem essa
-   linha, `lv_qrcode_create`/`lv_qrcode_update` não existem e o build
-   falha no link. Adicione perto de `CONFIG_LV_USE_LODEPNG=y`.
+7. **QR code (ToggleQrCode, long-press no botão) NÃO usa o widget
+   `lv_qrcode` da LVGL -- de propósito.** Testado em hardware real:
+   ligar `CONFIG_LV_USE_QRCODE=y` dá erro de link ("multiple definition
+   of qrcodegen_makeEci") contra o `qrcodegen.c` que o componente
+   `espressif2022__esp_emote_gfx` (já presente no projeto base) embute
+   por conta própria. Em vez disso, `mumaqr.h`/`.cc` (cópia do mesmo
+   gerador, com todo identificador renomeado pra `mumaqr_*`) desenha o
+   QR na mão com `lv_canvas` -- sem depender de nenhuma opção de
+   Kconfig, sem conflito. **Se você já ligou `CONFIG_LV_USE_QRCODE` no
+   seu `sdkconfig` local tentando a versão anterior, desligue de novo**
+   (`idf.py menuconfig` → buscar `LV_USE_QRCODE` → desmarcar).
 8. **Arquivo `.cc`/`.h` NOVO na pasta do board exige `idf.py
    reconfigure` antes do próximo `idf.py build`** -- o `file(GLOB)` do
    `main/CMakeLists.txt` só reavalia no reconfigure, não a cada build
