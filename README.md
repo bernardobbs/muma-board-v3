@@ -24,13 +24,17 @@ touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
    e cada board só tem seus `.cc`/`.c` capturados por um
    `file(GLOB boards/<board>/*.cc)` automático. Qualquer arquivo novo
    na pasta do board entra sozinho.
-3. **`esp_http_server`, `esp_http_client`, `cJSON`, NVS (via `Settings`)
-   e `esp_crt_bundle_attach` (via `mbedtls`) já estão disponíveis**,
-   sem precisar declarar `REQUIRES` em lugar nenhum: confirmado que
-   `main/boards/otto-robot/` e `main/boards/electron-bot/` já incluem
-   `esp_http_server.h` direto na pasta do board, sem nenhum
-   `CMakeLists.txt` próprio -- e `mbedtls`/`json`/NVS já são usados
-   amplamente em `main/` (settings, OTA, protocolos).
+3. **CORRIGIDO após compilação real (a suposição abaixo estava
+   errada):** `json`, `esp_http_client`, `esp_http_server` e `esp_wifi`
+   **precisam sim** ser adicionados ao `PRIV_REQUIRES` do único
+   `idf_component_register` em `main/CMakeLists.txt` do projeto base --
+   o primeiro build de verdade falhou em `notifications.cc` com
+   `esp_http_client.h` (erro do próprio compilador: "provided by Z,
+   however Z is not in the requirements list"). A tentativa anterior de
+   confirmar isso só por grep no código-fonte (achando os mesmos headers
+   usados em outros arquivos de `main/`) não bastava -- só compilando
+   de verdade é que aparece. `mbedtls` (pro `esp_crt_bundle_attach`) e
+   NVS (via `Settings`) esses sim já eram suficientes sem adicionar nada.
 4. Antes de flashear, troque `FAMILY_ADMIN_PASSWORD` no topo do
    `sp-esp32-s3-1.54-muma.cc` pela senha real de admin.
 5. Depois de editar `www/index.html` ou `www/admin.html`, rode
