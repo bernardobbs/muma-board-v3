@@ -8,6 +8,8 @@
 #include "semaphore_tool.h"
 #include "alarm_tool.h"
 #include "breathing_tool.h"
+#include "application.h"
+#include "assets/lang_config.h"
 
 #include <esp_log.h>
 #include <cstdio>
@@ -21,20 +23,35 @@ static void WireEngines() {
     auto& pomo = PomodoroEngine::GetInstance();
     auto& routine = RoutineEngine::GetInstance();
 
-    // Pomodoro alimenta o bichinho e o humor/GIF
+    // Pomodoro alimenta o bichinho e o humor/GIF. Cada troca de fase
+    // toca um som -- sem isso, a unica pista de que o foco acabou e o
+    // pausa comecou era o numero no relogio continuar contando (feedback
+    // real: "nao avisou que passou pra pausa"). O texto "Foco"/"Pausa"
+    // junto do relogio (ver UpdatePomodoroLabel) reforca visualmente.
     pomo.SetOnPhaseChanged([&tama](PomodoroState state) {
         switch (state) {
             case PomodoroState::STUDY:   tama.SetMood(TamaMood::FOCADO); break;
             case PomodoroState::WARNING: tama.SetMood(TamaMood::AVISO); break;
-            case PomodoroState::BREAK:   tama.OnPomodoroCompleted(); break;   // +1 ponto por completar o foco
-            case PomodoroState::IDLE:    tama.SetMood(TamaMood::NEUTRO); break;
+            case PomodoroState::BREAK:
+                tama.OnPomodoroCompleted();   // +1 ponto por completar o foco
+                Application::GetInstance().PlaySound(Lang::Sounds::OGG_SUCCESS);
+                break;
+            case PomodoroState::IDLE:
+                tama.SetMood(TamaMood::NEUTRO);
+                break;
             case PomodoroState::PAUSED:  break;
         }
     });
 
     // +1 ponto extra por CUMPRIR a pausa (nao pular direto pra outro
     // foco) -- so dispara quando a pausa termina sozinha, nunca com Stop().
-    pomo.SetOnBreakCompleted([&tama]() { tama.OnBreakRespected(); });
+    // Som aqui (nao no PomodoroState::IDLE generico) porque Stop() TAMBEM
+    // leva pra IDLE -- nao queremos tocar "acabou a pausa" quando a
+    // crianca so cancelou o ciclo.
+    pomo.SetOnBreakCompleted([&tama]() {
+        tama.OnBreakRespected();
+        Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+    });
 
     // Tarefa concluida vira ponto
     routine.SetOnTaskDone([&tama](const RoutineTask& t) {

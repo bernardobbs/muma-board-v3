@@ -327,6 +327,7 @@ private:
             // precisar gerar/embutir nada).
             lv_obj_set_style_transform_scale_x(pomodoro_label_, 640, 0);  // 2.5x -- ficou pequeno em 1.5x
             lv_obj_set_style_transform_scale_y(pomodoro_label_, 640, 0);
+            lv_obj_set_style_text_align(pomodoro_label_, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_align(pomodoro_label_, LV_ALIGN_CENTER, 0, 0);
             lv_obj_add_flag(pomodoro_label_, LV_OBJ_FLAG_HIDDEN);
         }
@@ -337,14 +338,16 @@ private:
         }
         lv_obj_clear_flag(pomodoro_tomato_, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(pomodoro_label_, LV_OBJ_FLAG_HIDDEN);
-        // buf[16], nao buf[8]: na pratica "MM:SS" nunca passa de 5 chars
-        // (pomodoro clampado a kMaxStudyMin=40min), mas o GCC (com
-        // -Werror=format-truncation) calcula o pior caso teorico pra um
-        // int generico, que passa de 8 bytes -- warning tratado como
-        // erro no build. 16 bytes elimina o warning sem mudar nada em
-        // tempo de execucao.
-        char buf[16];
-        snprintf(buf, sizeof(buf), "%d:%02d", seconds_remaining / 60, seconds_remaining % 60);
+        // "Foco"/"Pausa" junto do numero -- sem isso a unica pista de
+        // troca de fase era o som (ver mcp_tools.cc), e antes nem isso
+        // (feedback real: "nao avisou que passou pra pausa").
+        const char* phase_word =
+            (PomodoroEngine::GetInstance().state() == PomodoroState::BREAK) ? "Pausa" : "Foco";
+        // buf[40], generoso: "Pausa\n" (6) + "%d:%02d" pior caso teorico
+        // pro GCC (-Werror=format-truncation) mais margem.
+        char buf[40];
+        snprintf(buf, sizeof(buf), "%s\n%d:%02d", phase_word,
+                 seconds_remaining / 60, seconds_remaining % 60);
         lv_label_set_text(pomodoro_label_, buf);
     }
 
