@@ -157,8 +157,11 @@ O que falta é só a **arte por espécie**:
   disparava (sem erro nenhum, confirmado em log real de novo). Resolvido
   abandonando eventos/callbacks: um `esp_timer` periódico checa
   `Application::GetDeviceState() == kDeviceStateIdle` e sobe o
-  `ConfigServer` quando fica pronto. Ver `board_integration.md` pro
-  histórico completo das três tentativas.
+  `ConfigServer` quando fica pronto. **Confirmado funcionando em
+  hardware real** (log real: `ConfigServer: Servidor de configuracao
+  no ar (porta 80)` logo depois de `StateMachine: State: activating ->
+  idle`). Ver `board_integration.md` pro histórico completo das três
+  tentativas.
 - **Label do cronômetro na tela**: `UpdatePomodoroLabel(s)` mostra
   `MM:SS` no canto superior direito, criado sob demanda no primeiro
   tick (não dá pra criar no construtor -- `SetupUI()` do display só

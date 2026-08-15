@@ -43,9 +43,10 @@ merge upstream do fork conflitar com essas mudanças):
      segundos de boot sem nenhuma linha do `ConfigServer` e sem erro.
      Causa exata não confirmada (provavelmente alguma sutileza de
      timing do event loop que não dá pra ver só lendo log).
-  3. **Solução atual: polling.** Abandona qualquer callback/evento
-     assíncrono. Um `esp_timer` periódico (1s), criado no construtor,
-     chama `CheckNetworkReady()` que checa
+  3. **Solução atual: polling. Confirmada funcionando em hardware
+     real.** Abandona qualquer callback/evento assíncrono. Um
+     `esp_timer` periódico (1s), criado no construtor, chama
+     `CheckNetworkReady()` que checa
      `Application::GetInstance().GetDeviceState() == kDeviceStateIdle`
      -- estado que a própria `Application` já expõe e que só é atingido
      depois que o Wi-Fi conecta **e** a ativação com o backend (OTA +
@@ -53,7 +54,21 @@ merge upstream do fork conflitar com essas mudanças):
      -> idle`). Quando fica `true`, sobe o `ConfigServer` e o timer se
      autodesliga (`esp_timer_stop`). Sem depender de nenhum mecanismo de
      evento do ESP-IDF, então não tem como ter o mesmo tipo de bug de
-     timing/sobrescrita das duas tentativas anteriores.
+     timing/sobrescrita das duas tentativas anteriores. Log real de
+     confirmação:
+     ```
+     I (16740) StateMachine: State: activating -> idle
+     I (17510) Spotpear_esp32_s3_lcd_1_54: CheckNetworkReady: estado idle detectado, subindo ConfigServer
+     I (17510) ConfigServer: Servidor de configuracao no ar (porta 80)
+     ```
+     A causa raiz de por que as duas tentativas anteriores pareciam
+     "não fazer nada" mesmo depois de corrigidas: o `git pull` no
+     dispositivo de teste não estava de fato trazendo os commits novos
+     (branch local ficava atrás sem aviso claro, bloqueada pela edição
+     local de `FAMILY_ADMIN_PASSWORD` não commitada) -- o binário
+     testado continuava sendo uma versão anterior. Lição: depois de
+     qualquer `git pull` em cima de mudança local, confirme com `git
+     log --oneline -1` antes de compilar.
 - Humor do bichinho -> emoji na tela usa `Tamagotchi::MoodName()`
   direto. As chaves já são o vocabulário padrão do xiaozhi
   (`"neutral"`, `"happy"`, `"thinking"`, `"surprised"`, `"funny"`),
