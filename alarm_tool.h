@@ -2,26 +2,36 @@
 #include <esp_timer.h>
 #include <functional>
 #include <string>
+#include <vector>
 
-// Alarme de horario (HH:MM), configurado em /admin, dispara uma vez por
-// dia. So depende do RTC local (mesmo mecanismo que ChildProfile/
-// RoutineEngine ja usam pra virada de dia) -- nenhuma dependencia de rede
-// nem de bridge externo.
+struct AlarmEntry {
+    std::string id;
+    int hour = 7;
+    int minute = 0;
+    bool enabled = true;
+    int last_fired_yday = -1;   // runtime, nao persistido -- evita repetir no mesmo dia
+};
+
+// Varios alarmes de horario (HH:MM), configurados pela PROPRIA crianca
+// em "/" (sem senha -- e sobre como ela usa o aparelho, nao uma regra
+// dos responsaveis, por isso nao mora em /admin). Cada alarme dispara
+// uma vez por dia. So depende do RTC local -- nenhuma dependencia de
+// rede nem de bridge externo.
 class AlarmEngine {
 public:
     static AlarmEngine& GetInstance() { static AlarmEngine i; return i; }
 
     void Initialize();   // le do NVS e cria o timer de checagem
-    void Set(int hour, int minute, bool enabled);
+    std::string AddAlarm(int hour, int minute);       // devolve o id gerado
+    bool RemoveAlarm(const std::string& id);
+    bool SetEnabled(const std::string& id, bool enabled);
+    bool UpdateAlarm(const std::string& id, int hour, int minute);
+    std::string ListJson() const;
+
+    bool firing() const { return firing_; }
     void Dismiss();      // crianca confirma (ex: botao) -- para o som/tela
 
-    int hour() const { return hour_; }
-    int minute() const { return minute_; }
-    bool enabled() const { return enabled_; }
-    bool firing() const { return firing_; }
-    std::string ToJson() const;
-
-    // Disparado UMA VEZ quando o alarme comeca a tocar -- quem ouvir cria
+    // Disparado UMA VEZ quando um alarme comeca a tocar -- quem ouvir cria
     // a tela de alerta e toca o som a primeira vez.
     void SetOnFired(std::function<void()> cb) { on_fired_ = cb; }
     // Disparado a cada poucos segundos ENQUANTO estiver tocando -- so pra
@@ -34,14 +44,14 @@ public:
 private:
     AlarmEngine() = default;
     void Load();
+    void Save() const;
     void Check();
     static void CheckTrampoline(void* arg);
+    static std::string GenId();
 
+    std::vector<AlarmEntry> alarms_;
     esp_timer_handle_t timer_ = nullptr;
-    int hour_ = 7, minute_ = 0;
-    bool enabled_ = false;
     bool firing_ = false;
-    int last_fired_yday_ = -1;       // tm_yday da ultima vez que disparou -- evita repetir no mesmo dia
     int64_t firing_started_us_ = 0;
     int64_t last_ring_us_ = 0;
 

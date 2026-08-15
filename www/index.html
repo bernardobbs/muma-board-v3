@@ -29,6 +29,15 @@ input[type=range]{width:100%}.val{font-weight:600;color:var(--ink)}
 .note{background:#fbf6e8;border:1px solid #ecdcb4;border-radius:10px;padding:11px 13px;font-size:13px;color:#6b5a2e}
 button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:14px}
 .ok{color:var(--ac);font-size:13px;text-align:center;margin-top:8px;min-height:18px}
+.alarm{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.alarm:last-child{border:0}
+.alarm .hhmm{flex:1;font:600 17px ui-monospace,monospace}
+.alarm .del{background:none;border:0;color:#a6402f;cursor:pointer;font-size:19px;padding:0 4px;line-height:1}
+.addrow{display:flex;gap:8px;margin-top:10px}
+.addrow input{flex:1}
+.addrow button{flex:0 0 auto;padding:9px 14px;border:1px dashed var(--line);background:#faf5ea;border-radius:10px;cursor:pointer;font:inherit;color:var(--soft)}
+.adminlink{text-align:center;margin-top:22px}
+.adminlink a{color:var(--soft);font-size:12px;text-decoration:none}
 </style></head><body>
 
 <p class="sub" id="greeting" style="margin-bottom:2px">Oi!</p>
@@ -62,6 +71,15 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
 <div class="card">
   <h2>Minha rotina de hoje</h2>
   <div id="routine">Carregando…</div>
+</div>
+
+<div class="card">
+  <h2>Meus alarmes</h2>
+  <div id="alarms">Carregando…</div>
+  <div class="addrow">
+    <input type="time" id="newAlarmTime" value="07:00">
+    <button id="addAlarm">+ adicionar</button>
+  </div>
 </div>
 
 <div class="card">
@@ -125,6 +143,28 @@ async function loadRoutine(){
   });
 }
 
+async function loadAlarms(){
+  const list=await get("/api/alarms");
+  const el=$("#alarms");el.innerHTML="";
+  if(!list.length){el.innerHTML='<p style="color:var(--soft);font-size:13px;margin:0">Nenhum alarme ainda.</p>';return}
+  list.forEach(a=>{
+    const row=document.createElement("div");row.className="alarm";
+    const t=document.createElement("span");t.className="hhmm";
+    t.textContent=pad(a.hour)+":"+pad(a.minute);
+    const sw=document.createElement("input");sw.type="checkbox";sw.checked=a.enabled;
+    sw.onchange=()=>post("/api/alarms/toggle",{id:a.id,enabled:sw.checked});
+    const del=document.createElement("button");del.className="del";del.textContent="×";
+    del.onclick=async()=>{await post("/api/alarms/remove",{id:a.id});loadAlarms()};
+    row.append(t,sw,del);el.appendChild(row);
+  });
+}
+
+$("#addAlarm").onclick=async()=>{
+  const [h,m]=$("#newAlarmTime").value.split(":").map(Number);
+  await post("/api/alarms/add",{hour:h||0,minute:m||0});
+  loadAlarms();
+};
+
 async function loadPomodoro(){
   const p=await get("/api/pomodoro");
   const s=p.restante_s||0;
@@ -163,6 +203,8 @@ $("#save").onclick=async()=>{
   loadConfig();
 };
 
-loadPet();loadRoutine();loadConfig();loadPomodoro();
+loadPet();loadRoutine();loadConfig();loadPomodoro();loadAlarms();
 setInterval(loadPomodoro,1000);
-</script></body></html>
+</script>
+<p class="adminlink"><a href="/admin">⚙ Configurações (área dos responsáveis)</a></p>
+</body></html>

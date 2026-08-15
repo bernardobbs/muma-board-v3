@@ -79,14 +79,17 @@ void ConfigServer::RegisterHandlers() {
     Register("/api/config",        HTTP_POST, PostConfig);
     Register("/api/pomodoro",      HTTP_GET,  GetPomodoro);
     Register("/api/pomodoro",      HTTP_POST, PostPomodoro);
+    Register("/api/alarms",        HTTP_GET,  GetAlarms);
+    Register("/api/alarms/add",    HTTP_POST, PostAlarmAdd);
+    Register("/api/alarms/remove", HTTP_POST, PostAlarmRemove);
+    Register("/api/alarms/toggle", HTTP_POST, PostAlarmToggle);
+    Register("/api/alarms/update", HTTP_POST, PostAlarmUpdate);
     // area de voces (com senha)
     Register("/admin",             HTTP_GET,  GetAdminPage);
     Register("/api/admin/routine", HTTP_GET,  GetRoutineDef);
     Register("/api/admin/routine", HTTP_POST, PostRoutineDef);
     Register("/api/admin/config",  HTTP_GET,  GetAdminConfig);
     Register("/api/admin/config",  HTTP_POST, PostAdminConfig);
-    Register("/api/admin/alarm",   HTTP_GET,  GetAdminAlarm);
-    Register("/api/admin/alarm",   HTTP_POST, PostAdminAlarm);
     Register("/api/admin/csrf",    HTTP_GET,  GetAdminCsrf);
 }
 
@@ -273,6 +276,67 @@ esp_err_t ConfigServer::PostPomodoro(httpd_req_t* req) {
     return SendJson(req, p.StatusJson());
 }
 
+esp_err_t ConfigServer::GetAlarms(httpd_req_t* req) {
+    return SendJson(req, AlarmEngine::GetInstance().ListJson());
+}
+
+esp_err_t ConfigServer::PostAlarmAdd(httpd_req_t* req) {
+    std::string body;
+    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
+    cJSON* hour = cJSON_GetObjectItem(root, "hour");
+    cJSON* minute = cJSON_GetObjectItem(root, "minute");
+    if (!cJSON_IsNumber(hour) || !cJSON_IsNumber(minute)) {
+        cJSON_Delete(root);
+        return SendBadRequest(req, "esperado {hour, minute}");
+    }
+    std::string id = AlarmEngine::GetInstance().AddAlarm(hour->valueint, minute->valueint);
+    cJSON_Delete(root);
+    return SendJson(req, "{\"ok\":true,\"id\":\"" + id + "\"}");
+}
+
+esp_err_t ConfigServer::PostAlarmRemove(httpd_req_t* req) {
+    std::string body;
+    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
+    cJSON* id = cJSON_GetObjectItem(root, "id");
+    bool ok = cJSON_IsString(id) && AlarmEngine::GetInstance().RemoveAlarm(id->valuestring);
+    cJSON_Delete(root);
+    if (!ok) return SendBadRequest(req, "alarme nao encontrado");
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::PostAlarmToggle(httpd_req_t* req) {
+    std::string body;
+    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
+    cJSON* id = cJSON_GetObjectItem(root, "id");
+    cJSON* enabled = cJSON_GetObjectItem(root, "enabled");
+    bool ok = cJSON_IsString(id) && cJSON_IsBool(enabled) &&
+              AlarmEngine::GetInstance().SetEnabled(id->valuestring, cJSON_IsTrue(enabled));
+    cJSON_Delete(root);
+    if (!ok) return SendBadRequest(req, "alarme nao encontrado ou corpo invalido");
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::PostAlarmUpdate(httpd_req_t* req) {
+    std::string body;
+    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
+    cJSON* id = cJSON_GetObjectItem(root, "id");
+    cJSON* hour = cJSON_GetObjectItem(root, "hour");
+    cJSON* minute = cJSON_GetObjectItem(root, "minute");
+    bool ok = cJSON_IsString(id) && cJSON_IsNumber(hour) && cJSON_IsNumber(minute) &&
+              AlarmEngine::GetInstance().UpdateAlarm(id->valuestring, hour->valueint, minute->valueint);
+    cJSON_Delete(root);
+    if (!ok) return SendBadRequest(req, "alarme nao encontrado ou corpo invalido");
+    return SendJson(req, "{\"ok\":true}");
+}
+
 // ------------------------------------------------------------ area admin
 
 esp_err_t ConfigServer::GetRoutineDef(httpd_req_t* req) {
@@ -293,31 +357,6 @@ esp_err_t ConfigServer::PostRoutineDef(httpd_req_t* req) {
     if (!ReadBody(req, body, 8192)) return SendBadRequest(req, "corpo invalido ou grande demais");
     if (!RoutineEngine::GetInstance().ReplaceDefinition(body))
         return SendBadRequest(req, "JSON invalido -- rotina anterior mantida");
-    return SendJson(req, "{\"ok\":true}");
-}
-
-esp_err_t ConfigServer::GetAdminAlarm(httpd_req_t* req) {
-    if (!RequireAdmin(req)) return ESP_OK;
-    return SendJson(req, AlarmEngine::GetInstance().ToJson());
-}
-
-esp_err_t ConfigServer::PostAdminAlarm(httpd_req_t* req) {
-    if (!RequireAdmin(req)) return ESP_OK;
-    if (!RequireCsrf(req)) return ESP_OK;
-    std::string body;
-    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
-    cJSON* root = cJSON_Parse(body.c_str());
-    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
-
-    cJSON* hour = cJSON_GetObjectItem(root, "hour");
-    cJSON* minute = cJSON_GetObjectItem(root, "minute");
-    cJSON* enabled = cJSON_GetObjectItem(root, "enabled");
-    if (!cJSON_IsNumber(hour) || !cJSON_IsNumber(minute) || !cJSON_IsBool(enabled)) {
-        cJSON_Delete(root);
-        return SendBadRequest(req, "esperado {hour, minute, enabled}");
-    }
-    AlarmEngine::GetInstance().Set(hour->valueint, minute->valueint, cJSON_IsTrue(enabled));
-    cJSON_Delete(root);
     return SendJson(req, "{\"ok\":true}");
 }
 

@@ -25,6 +25,7 @@
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 #include <cstdio>
+#include <esp_netif.h>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
 // board original) ---
@@ -103,6 +104,9 @@ private:
     lv_obj_t* pomodoro_tomato_ = nullptr;  // imagem do tomate (pomodoro_tomato.png) ao fundo do relogio
     lv_obj_t* stage_badge_ = nullptr;      // selo de estagio, criado sob demanda
     lv_obj_t* alarm_banner_ = nullptr;     // tela cheia enquanto o alarme toca, criada sob demanda
+    lv_obj_t* qr_overlay_ = nullptr;       // tela cheia com QR code, criada sob demanda (toggle no long-press)
+    lv_obj_t* qr_code_ = nullptr;
+    lv_obj_t* qr_label_ = nullptr;
     esp_io_expander_handle_t io_expander_ = NULL;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
@@ -383,6 +387,55 @@ private:
         if (alarm_banner_ != nullptr) lv_obj_add_flag(alarm_banner_, LV_OBJ_FLAG_HIDDEN);
     }
 
+    // IP da estacao Wi-Fi -- direto do esp_netif, sem depender de nenhum
+    // getter do componente de wifi (nao achamos um exposto). Vazio se a
+    // rede ainda nao tiver IP (ex: antes de conectar).
+    static std::string GetDeviceIpAddress() {
+        esp_netif_t* netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+        if (netif == nullptr) return "";
+        esp_netif_ip_info_t ip_info;
+        if (esp_netif_get_ip_info(netif, &ip_info) != ESP_OK || ip_info.ip.addr == 0) return "";
+        char buf[16];
+        snprintf(buf, sizeof(buf), IPSTR, IP2STR(&ip_info.ip));
+        return std::string(buf);
+    }
+
+    // QR code com a URL da pagina dela ("/", sem senha) -- long press no
+    // boot_button_ mostra/esconde (ver InitializeButtons). Cobre a tela
+    // toda pra ficar grande o suficiente pra escanear de perto.
+    void ToggleQrCode() {
+        DisplayLockGuard lock(display_);
+        if (qr_overlay_ != nullptr && !lv_obj_has_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN)) {
+            lv_obj_add_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN);
+            return;
+        }
+        std::string ip = GetDeviceIpAddress();
+        if (ip.empty()) return;  // sem rede ainda -- nada pra mostrar
+        std::string url = "http://" + ip + "/";
+
+        if (qr_overlay_ == nullptr) {
+            qr_overlay_ = lv_obj_create(lv_screen_active());
+            lv_obj_remove_style_all(qr_overlay_);
+            lv_obj_set_size(qr_overlay_, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+            lv_obj_set_style_bg_color(qr_overlay_, lv_color_white(), 0);
+            lv_obj_set_style_bg_opa(qr_overlay_, LV_OPA_COVER, 0);
+            lv_obj_center(qr_overlay_);
+
+            qr_code_ = lv_qrcode_create(qr_overlay_);
+            lv_qrcode_set_size(qr_code_, 170);
+            lv_qrcode_set_dark_color(qr_code_, lv_color_black());
+            lv_qrcode_set_light_color(qr_code_, lv_color_white());
+            lv_obj_align(qr_code_, LV_ALIGN_CENTER, 0, -14);
+
+            qr_label_ = lv_label_create(qr_overlay_);
+            lv_obj_set_style_text_color(qr_label_, lv_color_black(), 0);
+            lv_obj_align(qr_label_, LV_ALIGN_BOTTOM_MID, 0, -8);
+        }
+        lv_qrcode_update(qr_code_, url.c_str(), url.size());
+        lv_label_set_text(qr_label_, url.c_str());
+        lv_obj_clear_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN);
+    }
+
     // ConfigServer precisa de rede -- so sobe depois que o Wi-Fi conectar
     // e a ativacao com o backend terminar.
     //
@@ -438,6 +491,17 @@ private:
                 return;
             }
             app.ToggleChatState();
+        });
+        // Segurar o botao mostra/esconde um QR code com a URL da pagina
+        // dela ("/"), pra escanear com o celular sem digitar o IP. Se o
+        // alarme estiver tocando, o long press so desliga ele tambem --
+        // nao teria como ver o QR por cima do aviso mesmo.
+        boot_button_.OnLongPress([this]() {
+            if (AlarmEngine::GetInstance().firing()) {
+                AlarmEngine::GetInstance().Dismiss();
+                return;
+            }
+            ToggleQrCode();
         });
     }
 

@@ -82,17 +82,43 @@ merge upstream do fork conflitar com essas mudanças):
   placa devolve sempre a mesma instância `static`, então
   `SetOutputVolume(v)` funciona igual ao `SetBrightness` do backlight
   (confirmado em `main/audio/audio_codec.h`).
-- **Cronômetro na tela**: `UpdatePomodoroLabel(s)` cria um
-  `lv_label_create` sob demanda (primeiro tick) e mostra `MM:SS` no
-  canto superior direito da tela (`LV_ALIGN_TOP_RIGHT`, livre -- os
-  widgets padrão do `LcdDisplay` ficam em TOP_MID/CENTER/BOTTOM_MID).
-  Criado sob demanda, não no construtor, porque `SetupUI()` do display
-  só roda depois do construtor do board (confirmado em
+- **Cronômetro na tela (revisado)**: `UpdatePomodoroLabel(s)` cria, sob
+  demanda no primeiro tick, uma imagem (`pomodoro_tomato_`, PNG real de
+  `pomodoro_tomato.png` via `LvglRawImage`) + um label (`pomodoro_label_`,
+  texto "MM:SS" aumentado 2.5x via `lv_obj_set_style_transform_scale_x/y`),
+  os dois centralizados (`LV_ALIGN_CENTER`). Como o rosto de humor do
+  bichinho também usa CENTER, tomate+relógio ficam com
+  `LV_OBJ_FLAG_HIDDEN` fora do pomodoro, e SOBREPÕEM o rosto só
+  enquanto o cronômetro roda (versão original mostrava um label pequeno
+  em `LV_ALIGN_TOP_RIGHT`; trocado por feedback: "ficou pequeno" e "o
+  tomate não ficou legal" -- formas LVGL puras não convenceram, PNG
+  real sim). Criado sob demanda, não no construtor, porque `SetupUI()`
+  do display só roda depois do construtor do board (confirmado em
   `Application::Initialize()`, que chama os dois em sequência) --
-  `lv_screen_active()` ainda não existiria antes disso. Toda escrita
-  na UI passa por `DisplayLockGuard` (classe pública em
-  `display/display.h`, dá pra usar de fora mesmo com `Lock`/`Unlock`
-  sendo `protected` no `Display`).
+  `lv_screen_active()` ainda não existiria antes disso. Toda escrita na
+  UI passa por `DisplayLockGuard` (classe pública em `display/display.h`,
+  dá pra usar de fora mesmo com `Lock`/`Unlock` sendo `protected` no
+  `Display`).
+- **Alarmes (múltiplos, controlados pela própria criança)**: `AlarmEngine`
+  guarda uma lista (`std::vector<AlarmEntry>`, JSON no NVS, mesmo padrão
+  do `RoutineEngine`) em vez de um único horário -- decisão de design:
+  isso é sobre COMO a criança usa o aparelho, não uma regra dos
+  responsáveis, então mora em `/` (sem senha, endpoints `/api/alarms*`)
+  e não em `/admin`. Um `esp_timer` (5s) compara cada alarme habilitado
+  contra o RTC local; ao bater horário+minuto E ainda não ter disparado
+  nesse dia (`last_fired_yday`, por alarme, não persistido), mostra
+  `alarm_banner_` (tela cheia laranja) e toca `Lang::Sounds::OGG_EXCLAMATION`,
+  repetindo o som a cada 3s até `Dismiss()` (pelo `boot_button_`, por
+  voz via `self.alarm.dismiss`, ou sozinho depois de 60s). Se dois
+  alarmes baterem no mesmo minuto, o segundo dispara só depois que o
+  primeiro for desligado (checagem de `firing_` no topo de `Check()`).
+- **QR code pra achar a página sem digitar IP**: segurar o `boot_button_`
+  (`OnLongPress`) mostra/esconde um `lv_qrcode` de tela cheia com
+  `http://<ip>/`. O IP vem direto de `esp_netif_get_ip_info` (netif
+  `"WIFI_STA_DEF"`), sem depender de nenhum getter do componente de
+  wifi. Precisa de `CONFIG_LV_USE_QRCODE=y` em `sdkconfig.defaults` do
+  projeto base -- widget desligado por padrão no Kconfig do LVGL, ver
+  `README.md` seção de integração.
 - **Selo de estágio**: `UpdateStageBadge()` mostra `Tamagotchi::StageName()`
   ("Ovo"/"Filhote"/"Jovem"/"Forte") como texto puro no canto inferior
   direito (`LV_ALIGN_BOTTOM_RIGHT`, também livre). Texto, não emoji --
@@ -100,7 +126,7 @@ merge upstream do fork conflitar com essas mudanças):
   sem glifo de emoji; emoji só existe como imagem raster no
   `EmojiCollection`. Ligado em `Tamagotchi::SetOnEvolved` (dispara só
   quando o estágio SOBE) + uma chamada inicial dentro do
-  `NetworkEventCallback` (mesma razão do label do cronômetro: precisa
+  `CheckNetworkReady()` (mesma razão do label do cronômetro: precisa
   que `SetupUI()` já tenha rodado, e é a única garantia assíncrona que
   temos disso além do próprio tick do pomodoro).
 

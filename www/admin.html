@@ -69,15 +69,6 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
 </div>
 
 <div class="card">
-  <h2>Alarme</h2>
-  <div class="chk"><input type="checkbox" id="alOn"><label style="margin:0">Ativar alarme diário</label></div>
-  <label>Horário</label><input type="time" id="alTime" value="07:00">
-  <p class="hint">Toca uma vez por dia nesse horário, com som e tela cheia no aparelho, até tocar no botão dele pra desligar (ou desliga sozinho depois de 1 minuto).</p>
-  <button class="save" id="saveAlarm">Salvar alarme</button>
-  <div class="msg" id="msgA"></div>
-</div>
-
-<div class="card">
   <h2>Sistema</h2>
   <label>Fuso horário (formato POSIX TZ)</label>
   <input type="text" id="tz" placeholder="&lt;-03&gt;3">
@@ -148,19 +139,6 @@ $("#saveCfg").onclick=async()=>{
   loadCfg();
 };
 
-$("#saveAlarm").onclick=async()=>{
-  const [h,m]=$("#alTime").value.split(":").map(Number);
-  const body={hour:h||0,minute:m||0,enabled:$("#alOn").checked};
-  const r=await fetch("/api/admin/alarm",{method:"POST",headers:{"X-CSRF-Token":csrf},body:JSON.stringify(body)}).then(r=>r.json());
-  show($("#msgA"),r.ok,r.ok?"Alarme salvo.":(r.erro||"Falhou."));
-};
-
-async function loadAlarm(){
-  const a=await fetch("/api/admin/alarm").then(r=>r.json());
-  $("#alOn").checked=!!a.enabled;
-  $("#alTime").value=String(a.hour).padStart(2,"0")+":"+String(a.minute).padStart(2,"0");
-}
-
 async function loadCfg(){
   const c=await fetch("/api/admin/config").then(r=>r.json());
   $("#cname").value=c.nome||"";$("#cbirth").value=c.data_nascimento||"";
@@ -178,5 +156,4 @@ async function loadCfg(){
 fetch("/api/admin/csrf").then(r=>r.json()).then(d=>csrf=d.csrf);
 fetch("/api/admin/routine").then(r=>r.json()).then(d=>{data=d;render()});
 loadCfg();
-loadAlarm();
 </script></body></html>

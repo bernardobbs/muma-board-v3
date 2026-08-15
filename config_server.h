@@ -41,13 +41,18 @@ private:
     static esp_err_t PostConfig(httpd_req_t* req);
     static esp_err_t GetPomodoro(httpd_req_t* req);
     static esp_err_t PostPomodoro(httpd_req_t* req);
+    // Alarme: varios, controlados pela propria crianca -- por isso mora
+    // aqui do lado dela, sem senha, e nao na "area de voces" abaixo.
+    static esp_err_t GetAlarms(httpd_req_t* req);
+    static esp_err_t PostAlarmAdd(httpd_req_t* req);
+    static esp_err_t PostAlarmRemove(httpd_req_t* req);
+    static esp_err_t PostAlarmToggle(httpd_req_t* req);
+    static esp_err_t PostAlarmUpdate(httpd_req_t* req);
     // --- area de voces ---
     static esp_err_t GetRoutineDef(httpd_req_t* req);
     static esp_err_t PostRoutineDef(httpd_req_t* req);
     static esp_err_t GetAdminConfig(httpd_req_t* req);
     static esp_err_t PostAdminConfig(httpd_req_t* req);
-    static esp_err_t GetAdminAlarm(httpd_req_t* req);
-    static esp_err_t PostAdminAlarm(httpd_req_t* req);
     static esp_err_t GetAdminCsrf(httpd_req_t* req);
 
     static bool ReadBody(httpd_req_t* req, std::string& out, size_t max_len = 4096);

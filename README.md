@@ -39,6 +39,17 @@ touch, energia, áudio) -- os arquivos deste repo entram do lado dela.
    `sp-esp32-s3-1.54-muma.cc` pela senha real de admin.
 5. Depois de editar `www/index.html` ou `www/admin.html`, rode
    `python3 scripts/gen_web_assets.py` pra regenerar `web_assets.cc`.
+6. Depois de editar `pomodoro_tomato.png`, rode
+   `python3 scripts/gen_pomodoro_tomato.py` pra regenerar `pomodoro_tomato.cc`.
+7. **QR code (ToggleQrCode, long-press no botão) precisa de
+   `CONFIG_LV_USE_QRCODE=y` em `sdkconfig.defaults` do projeto base** --
+   o widget vem desligado por padrão no Kconfig do LVGL. Sem essa
+   linha, `lv_qrcode_create`/`lv_qrcode_update` não existem e o build
+   falha no link. Adicione perto de `CONFIG_LV_USE_LODEPNG=y`.
+8. **Arquivo `.cc`/`.h` NOVO na pasta do board exige `idf.py
+   reconfigure` antes do próximo `idf.py build`** -- o `file(GLOB)` do
+   `main/CMakeLists.txt` só reavalia no reconfigure, não a cada build
+   comum. Editar arquivo que já existe não precisa disso.
 
 ## ⚠️ Continua sem compilação — mesmo aviso de sempre
 

@@ -35,6 +35,15 @@ input[type=range]{width:100%}.val{font-weight:600;color:var(--ink)}
 .note{background:#fbf6e8;border:1px solid #ecdcb4;border-radius:10px;padding:11px 13px;font-size:13px;color:#6b5a2e}
 button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer;margin-top:14px}
 .ok{color:var(--ac);font-size:13px;text-align:center;margin-top:8px;min-height:18px}
+.alarm{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.alarm:last-child{border:0}
+.alarm .hhmm{flex:1;font:600 17px ui-monospace,monospace}
+.alarm .del{background:none;border:0;color:#a6402f;cursor:pointer;font-size:19px;padding:0 4px;line-height:1}
+.addrow{display:flex;gap:8px;margin-top:10px}
+.addrow input{flex:1}
+.addrow button{flex:0 0 auto;padding:9px 14px;border:1px dashed var(--line);background:#faf5ea;border-radius:10px;cursor:pointer;font:inherit;color:var(--soft)}
+.adminlink{text-align:center;margin-top:22px}
+.adminlink a{color:var(--soft);font-size:12px;text-decoration:none}
 </style></head><body>
 
 <p class="sub" id="greeting" style="margin-bottom:2px">Oi!</p>
@@ -68,6 +77,15 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
 <div class="card">
   <h2>Minha rotina de hoje</h2>
   <div id="routine">Carregando…</div>
+</div>
+
+<div class="card">
+  <h2>Meus alarmes</h2>
+  <div id="alarms">Carregando…</div>
+  <div class="addrow">
+    <input type="time" id="newAlarmTime" value="07:00">
+    <button id="addAlarm">+ adicionar</button>
+  </div>
 </div>
 
 <div class="card">
@@ -131,6 +149,28 @@ async function loadRoutine(){
   });
 }
 
+async function loadAlarms(){
+  const list=await get("/api/alarms");
+  const el=$("#alarms");el.innerHTML="";
+  if(!list.length){el.innerHTML='<p style="color:var(--soft);font-size:13px;margin:0">Nenhum alarme ainda.</p>';return}
+  list.forEach(a=>{
+    const row=document.createElement("div");row.className="alarm";
+    const t=document.createElement("span");t.className="hhmm";
+    t.textContent=pad(a.hour)+":"+pad(a.minute);
+    const sw=document.createElement("input");sw.type="checkbox";sw.checked=a.enabled;
+    sw.onchange=()=>post("/api/alarms/toggle",{id:a.id,enabled:sw.checked});
+    const del=document.createElement("button");del.className="del";del.textContent="×";
+    del.onclick=async()=>{await post("/api/alarms/remove",{id:a.id});loadAlarms()};
+    row.append(t,sw,del);el.appendChild(row);
+  });
+}
+
+$("#addAlarm").onclick=async()=>{
+  const [h,m]=$("#newAlarmTime").value.split(":").map(Number);
+  await post("/api/alarms/add",{hour:h||0,minute:m||0});
+  loadAlarms();
+};
+
 async function loadPomodoro(){
   const p=await get("/api/pomodoro");
   const s=p.restante_s||0;
@@ -169,9 +209,11 @@ $("#save").onclick=async()=>{
   loadConfig();
 };
 
-loadPet();loadRoutine();loadConfig();loadPomodoro();
+loadPet();loadRoutine();loadConfig();loadPomodoro();loadAlarms();
 setInterval(loadPomodoro,1000);
-</script></body></html>
+</script>
+<p class="adminlink"><a href="/admin">⚙ Configurações (área dos responsáveis)</a></p>
+</body></html>
 )MUMA_HTML";
 
 const char kAdminHtml[] = R"MUMA_HTML(
@@ -246,15 +288,6 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
 </div>
 
 <div class="card">
-  <h2>Alarme</h2>
-  <div class="chk"><input type="checkbox" id="alOn"><label style="margin:0">Ativar alarme diário</label></div>
-  <label>Horário</label><input type="time" id="alTime" value="07:00">
-  <p class="hint">Toca uma vez por dia nesse horário, com som e tela cheia no aparelho, até tocar no botão dele pra desligar (ou desliga sozinho depois de 1 minuto).</p>
-  <button class="save" id="saveAlarm">Salvar alarme</button>
-  <div class="msg" id="msgA"></div>
-</div>
-
-<div class="card">
   <h2>Sistema</h2>
   <label>Fuso horário (formato POSIX TZ)</label>
   <input type="text" id="tz" placeholder="&lt;-03&gt;3">
@@ -325,19 +358,6 @@ $("#saveCfg").onclick=async()=>{
   loadCfg();
 };
 
-$("#saveAlarm").onclick=async()=>{
-  const [h,m]=$("#alTime").value.split(":").map(Number);
-  const body={hour:h||0,minute:m||0,enabled:$("#alOn").checked};
-  const r=await fetch("/api/admin/alarm",{method:"POST",headers:{"X-CSRF-Token":csrf},body:JSON.stringify(body)}).then(r=>r.json());
-  show($("#msgA"),r.ok,r.ok?"Alarme salvo.":(r.erro||"Falhou."));
-};
-
-async function loadAlarm(){
-  const a=await fetch("/api/admin/alarm").then(r=>r.json());
-  $("#alOn").checked=!!a.enabled;
-  $("#alTime").value=String(a.hour).padStart(2,"0")+":"+String(a.minute).padStart(2,"0");
-}
-
 async function loadCfg(){
   const c=await fetch("/api/admin/config").then(r=>r.json());
   $("#cname").value=c.nome||"";$("#cbirth").value=c.data_nascimento||"";
@@ -355,6 +375,5 @@ async function loadCfg(){
 fetch("/api/admin/csrf").then(r=>r.json()).then(d=>csrf=d.csrf);
 fetch("/api/admin/routine").then(r=>r.json()).then(d=>{data=d;render()});
 loadCfg();
-loadAlarm();
 </script></body></html>
 )MUMA_HTML";
