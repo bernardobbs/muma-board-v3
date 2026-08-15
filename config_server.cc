@@ -6,6 +6,7 @@
 #include "semaphore_tool.h"
 #include "child_profile.h"
 #include "alarm_tool.h"
+#include "breathing_tool.h"
 #include "web_assets.h"
 
 #include <cJSON.h>
@@ -34,7 +35,7 @@ void ConfigServer::Start(const std::string& admin_password) {
     csrf_token_ = token;
 
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
-    config.max_uri_handlers = 24;      // 15 rotas hoje, com folga
+    config.max_uri_handlers = 32;      // 22 rotas hoje -- deixa folga pra futuras features
     config.lru_purge_enable = true;
     config.stack_size = 8192;
 
@@ -84,6 +85,8 @@ void ConfigServer::RegisterHandlers() {
     Register("/api/alarms/remove", HTTP_POST, PostAlarmRemove);
     Register("/api/alarms/toggle", HTTP_POST, PostAlarmToggle);
     Register("/api/alarms/update", HTTP_POST, PostAlarmUpdate);
+    Register("/api/breathing/start", HTTP_POST, PostBreathingStart);
+    Register("/api/breathing/stop",  HTTP_POST, PostBreathingStop);
     // area de voces (com senha)
     Register("/admin",             HTTP_GET,  GetAdminPage);
     Register("/api/admin/routine", HTTP_GET,  GetRoutineDef);
@@ -334,6 +337,16 @@ esp_err_t ConfigServer::PostAlarmUpdate(httpd_req_t* req) {
               AlarmEngine::GetInstance().UpdateAlarm(id->valuestring, hour->valueint, minute->valueint);
     cJSON_Delete(root);
     if (!ok) return SendBadRequest(req, "alarme nao encontrado ou corpo invalido");
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::PostBreathingStart(httpd_req_t* req) {
+    BreathingExercise::GetInstance().Start();
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::PostBreathingStop(httpd_req_t* req) {
+    BreathingExercise::GetInstance().Stop();
     return SendJson(req, "{\"ok\":true}");
 }
 

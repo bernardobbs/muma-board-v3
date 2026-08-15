@@ -48,6 +48,9 @@ private:
     static esp_err_t PostAlarmRemove(httpd_req_t* req);
     static esp_err_t PostAlarmToggle(httpd_req_t* req);
     static esp_err_t PostAlarmUpdate(httpd_req_t* req);
+    // Cantinho da calma: acionado pela propria crianca, sem senha.
+    static esp_err_t PostBreathingStart(httpd_req_t* req);
+    static esp_err_t PostBreathingStop(httpd_req_t* req);
     // --- area de voces ---
     static esp_err_t GetRoutineDef(httpd_req_t* req);
     static esp_err_t PostRoutineDef(httpd_req_t* req);

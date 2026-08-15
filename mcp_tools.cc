@@ -7,6 +7,7 @@
 #include "routine_engine.h"
 #include "semaphore_tool.h"
 #include "alarm_tool.h"
+#include "breathing_tool.h"
 
 #include <esp_log.h>
 #include <cstdio>
@@ -154,6 +155,15 @@ void RegisterAll() {
 
     mcp.AddTool("self.alarm.dismiss", "Desliga o alarme que esta tocando agora",
         PropertyList(), [&alarm](const PropertyList&) -> ReturnValue { alarm.Dismiss(); return true; });
+
+    // ---------------- cantinho da calma (respiracao guiada) ----------------
+    auto& breathing = BreathingExercise::GetInstance();
+    mcp.AddTool("self.breathing.start",
+        "Inicia um exercicio de respiracao guiada na tela, pra ajudar a se calmar",
+        PropertyList(), [&breathing](const PropertyList&) -> ReturnValue { breathing.Start(); return true; });
+
+    mcp.AddTool("self.breathing.stop", "Para o exercicio de respiracao guiada",
+        PropertyList(), [&breathing](const PropertyList&) -> ReturnValue { breathing.Stop(); return true; });
 
     ESP_LOGI(TAG, "Ferramentas MCP registradas para %s",
              ChildProfile::GetInstance().name().c_str());

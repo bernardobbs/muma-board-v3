@@ -64,6 +64,12 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
 </div>
 
 <div class="card">
+  <h2>Cantinho da calma</h2>
+  <p class="sub" style="margin:0 0 10px">Um exercício de respiração guiada, pra quando precisar se calmar.</p>
+  <button class="save" id="breathBtn" style="margin-top:0">Começar a respirar</button>
+</div>
+
+<div class="card">
   <h2>Meu companheiro</h2>
   <div class="opts" id="species"></div>
 </div>
@@ -163,6 +169,13 @@ $("#addAlarm").onclick=async()=>{
   const [h,m]=$("#newAlarmTime").value.split(":").map(Number);
   await post("/api/alarms/add",{hour:h||0,minute:m||0});
   loadAlarms();
+};
+
+let breathing=false;
+$("#breathBtn").onclick=async()=>{
+  breathing=!breathing;
+  await post(breathing?"/api/breathing/start":"/api/breathing/stop",{});
+  $("#breathBtn").textContent=breathing?"Parar":"Começar a respirar";
 };
 
 async function loadPomodoro(){

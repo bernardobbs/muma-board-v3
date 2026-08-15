@@ -37,6 +37,7 @@
 #include "routine_engine.h"
 #include "semaphore_tool.h"
 #include "alarm_tool.h"
+#include "breathing_tool.h"
 #include "mcp_tools.h"
 #include "config_server.h"
 #include "pet_emoji_collection.h"
@@ -108,6 +109,9 @@ private:
     lv_obj_t* qr_overlay_ = nullptr;       // tela cheia com QR code, criada sob demanda (toggle no long-press)
     lv_obj_t* qr_code_ = nullptr;
     lv_obj_t* qr_label_ = nullptr;
+    lv_obj_t* breathing_overlay_ = nullptr;  // "cantinho da calma", criado sob demanda
+    lv_obj_t* breathing_circle_ = nullptr;
+    lv_obj_t* breathing_label_ = nullptr;
     esp_io_expander_handle_t io_expander_ = NULL;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
@@ -437,6 +441,62 @@ private:
         lv_obj_clear_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN);
     }
 
+    // "Cantinho da calma": circulo que cresce/encolhe seguindo
+    // BreathingExercise::SetOnTick. Fundo azul claro (cor calma, nao a
+    // paleta padrao) pra ficar visualmente distinto de qualquer outro
+    // overlay. Tamanho MIN/MAX escolhido pra caber com folga nos 240x240.
+    static constexpr int kBreathMinSize = 60;
+    static constexpr int kBreathMaxSize = 170;
+
+    void UpdateBreathingOverlay(BreathPhase phase, float progress) {
+        DisplayLockGuard lock(display_);
+        if (breathing_overlay_ == nullptr) {
+            breathing_overlay_ = lv_obj_create(lv_screen_active());
+            lv_obj_remove_style_all(breathing_overlay_);
+            lv_obj_set_size(breathing_overlay_, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+            lv_obj_set_style_bg_color(breathing_overlay_, lv_color_hex(0xE3F2FD), 0);
+            lv_obj_set_style_bg_opa(breathing_overlay_, LV_OPA_COVER, 0);
+            lv_obj_center(breathing_overlay_);
+
+            breathing_circle_ = lv_obj_create(breathing_overlay_);
+            lv_obj_remove_style_all(breathing_circle_);
+            lv_obj_set_style_radius(breathing_circle_, LV_RADIUS_CIRCLE, 0);
+            lv_obj_set_style_bg_color(breathing_circle_, lv_color_hex(0x64B5F6), 0);
+            lv_obj_set_style_bg_opa(breathing_circle_, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(breathing_circle_, 0, 0);
+            lv_obj_center(breathing_circle_);
+
+            breathing_label_ = lv_label_create(breathing_overlay_);
+            lv_obj_set_style_text_color(breathing_label_, lv_color_hex(0x0D47A1), 0);
+            lv_obj_align(breathing_label_, LV_ALIGN_BOTTOM_MID, 0, -18);
+        }
+
+        int size;
+        const char* text;
+        switch (phase) {
+            case BreathPhase::INSPIRE:
+                size = kBreathMinSize + (int)((kBreathMaxSize - kBreathMinSize) * progress);
+                text = "Inspire...";
+                break;
+            case BreathPhase::SEGURA:
+                size = kBreathMaxSize;
+                text = "Segure...";
+                break;
+            default:  // SOLTA
+                size = kBreathMaxSize - (int)((kBreathMaxSize - kBreathMinSize) * progress);
+                text = "Solte...";
+                break;
+        }
+        lv_obj_set_size(breathing_circle_, size, size);
+        lv_label_set_text(breathing_label_, text);
+        lv_obj_clear_flag(breathing_overlay_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    void HideBreathingOverlay() {
+        DisplayLockGuard lock(display_);
+        if (breathing_overlay_ != nullptr) lv_obj_add_flag(breathing_overlay_, LV_OBJ_FLAG_HIDDEN);
+    }
+
     // ConfigServer precisa de rede -- so sobe depois que o Wi-Fi conectar
     // e a ativacao com o backend terminar.
     //
@@ -503,6 +563,12 @@ private:
                 AlarmEngine::GetInstance().Dismiss();
                 return;
             }
+            // Cantinho da calma ativo -- botao so para o exercicio, nao
+            // alterna o chat (senao nao teria como sair sem falar).
+            if (BreathingExercise::GetInstance().active()) {
+                BreathingExercise::GetInstance().Stop();
+                return;
+            }
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting) {
                 EnterWifiConfigMode();
@@ -552,6 +618,14 @@ private:
             Application::GetInstance().PlaySound(Lang::Sounds::OGG_EXCLAMATION);
         });
         AlarmEngine::GetInstance().SetOnDismissed([this]() { HideAlarmBanner(); });
+
+        // Cantinho da calma: circulo crescendo/encolhendo na tela,
+        // acionado pela propria crianca (botao em "/" ou voz).
+        BreathingExercise::GetInstance().Initialize();
+        BreathingExercise::GetInstance().SetOnTick([this](BreathPhase phase, float progress) {
+            UpdateBreathingOverlay(phase, progress);
+        });
+        BreathingExercise::GetInstance().SetOnStopped([this]() { HideBreathingOverlay(); });
 
         // Humor do bichinho -> emoji na tela. As chaves de MoodName() ja
         // seguem o vocabulario padrao do xiaozhi (neutral/happy/thinking/
