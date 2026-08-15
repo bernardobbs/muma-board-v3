@@ -20,20 +20,40 @@ merge upstream do fork conflitar com essas mudanças):
   inicializa os 3 engines (pomodoro, bichinho, rotina), liga os
   callbacks de brilho/volume/humor e registra as tools MCP.
 - O `ConfigServer::Start(...)` **não** entra no construtor -- ele
-  precisa de rede. **Correção feita depois de testar em hardware real**:
-  a primeira versão usava `SetNetworkEventCallback` (registrado no
-  construtor, disparando em `NetworkEvent::Connected`) -- só que
-  `Application::Initialize()` (`main/application.cc`) **também** chama
-  `board.SetNetworkEventCallback(...)`, depois do construtor do board
-  já ter rodado, pra atualizar notificações de UI ("Conectando a
-  Wi-Fi..."). Como é um único `std::function` (não uma lista), essa
-  chamada **sobrescreve silenciosamente** a nossa -- sem erro, sem log,
-  só nunca mais dispara. Isso derrubava o `ConfigServer` inteiro
-  (`/` e `/admin` davam "connection refused") sem nenhuma pista no log
-  de boot. Trocado por um handler nativo do ESP-IDF
-  (`esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, ...)`),
-  que aceita múltiplos handlers independentes e não conflita com nada
-  que a `Application` já faz.
+  precisa de rede. **Duas tentativas testadas em hardware real e
+  descartadas antes da que ficou**:
+  1. `SetNetworkEventCallback` (registrado no construtor, disparando em
+     `NetworkEvent::Connected`) -- `Application::Initialize()`
+     (`main/application.cc`) **também** chama
+     `board.SetNetworkEventCallback(...)`, depois do construtor do board
+     já ter rodado, pra atualizar notificações de UI ("Conectando a
+     Wi-Fi..."). Como é um único `std::function` (não uma lista), essa
+     chamada **sobrescreve silenciosamente** a nossa -- sem erro, sem
+     log, só nunca mais dispara. Confirmado no log de boot real:
+     `ConfigServer` nunca subia (`/` e `/admin` davam "connection
+     refused"), sem nenhuma pista de erro.
+  2. `esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, ...)`
+     -- a suposição era que um evento nativo do ESP-IDF, que aceita
+     múltiplos handlers independentes, não teria o mesmo conflito.
+     Também testado em hardware real, com `esp_netif_init()`/
+     `esp_event_loop_create_default()` chamados manualmente antes do
+     registro (achávamos que o event loop padrão só existia depois do
+     construtor do board, pela ordem dos logs). O registro não dava
+     erro nenhum, mas o handler **também nunca disparava** -- log de 30+
+     segundos de boot sem nenhuma linha do `ConfigServer` e sem erro.
+     Causa exata não confirmada (provavelmente alguma sutileza de
+     timing do event loop que não dá pra ver só lendo log).
+  3. **Solução atual: polling.** Abandona qualquer callback/evento
+     assíncrono. Um `esp_timer` periódico (1s), criado no construtor,
+     chama `CheckNetworkReady()` que checa
+     `Application::GetInstance().GetDeviceState() == kDeviceStateIdle`
+     -- estado que a própria `Application` já expõe e que só é atingido
+     depois que o Wi-Fi conecta **e** a ativação com o backend (OTA +
+     MQTT) termina (confirmado no log: `StateMachine: State: activating
+     -> idle`). Quando fica `true`, sobe o `ConfigServer` e o timer se
+     autodesliga (`esp_timer_stop`). Sem depender de nenhum mecanismo de
+     evento do ESP-IDF, então não tem como ter o mesmo tipo de bug de
+     timing/sobrescrita das duas tentativas anteriores.
 - Humor do bichinho -> emoji na tela usa `Tamagotchi::MoodName()`
   direto. As chaves já são o vocabulário padrão do xiaozhi
   (`"neutral"`, `"happy"`, `"thinking"`, `"surprised"`, `"funny"`),

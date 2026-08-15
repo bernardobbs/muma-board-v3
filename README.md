@@ -150,11 +150,15 @@ O que falta é só a **arte por espécie**:
   (raiz deste repo) é o arquivo completo do board com
   `InitializeFamilyFeatures()` chamado no construtor.
 - **`ConfigServer` não subia de jeito nenhum** (`/` e `/admin` davam
-  "connection refused") -- achado testando em hardware real. Causa:
-  `Application::Initialize()` também usa `SetNetworkEventCallback` e
-  sobrescrevia silenciosamente o nosso. Corrigido com o evento nativo
-  `IP_EVENT_STA_GOT_IP` do ESP-IDF. Ver `board_integration.md` pro
-  detalhe completo.
+  "connection refused") -- achado testando em hardware real, e demorou
+  três tentativas pra resolver de verdade. Primeiro, `SetNetworkEventCallback`
+  era sobrescrito silenciosamente por `Application::Initialize()`.
+  Trocado pelo evento nativo `IP_EVENT_STA_GOT_IP`, mas também não
+  disparava (sem erro nenhum, confirmado em log real de novo). Resolvido
+  abandonando eventos/callbacks: um `esp_timer` periódico checa
+  `Application::GetDeviceState() == kDeviceStateIdle` e sobe o
+  `ConfigServer` quando fica pronto. Ver `board_integration.md` pro
+  histórico completo das três tentativas.
 - **Label do cronômetro na tela**: `UpdatePomodoroLabel(s)` mostra
   `MM:SS` no canto superior direito, criado sob demanda no primeiro
   tick (não dá pra criar no construtor -- `SetupUI()` do display só
