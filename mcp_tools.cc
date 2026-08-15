@@ -70,8 +70,31 @@ void RegisterAll() {
     auto& tama = Tamagotchi::GetInstance();
     auto& routine = RoutineEngine::GetInstance();
     auto& sem = OverloadSemaphore::GetInstance();
+    auto& cfg = DeviceConfig::GetInstance();
 
     // ---------------- pomodoro ----------------
+    // set_duration faltava -- sem ela, pedir por voz pra mudar o tempo
+    // do pomodoro nao tinha NENHUMA tool pra fazer isso de verdade (so
+    // start/pause/resume/stop/status, todas sem parametro). A IA so
+    // conversava sobre mudar, sem efeito algum -- por isso a
+    // configuracao feita na pagina sempre "vencia": era a UNICA que
+    // realmente escrevia em algum lugar.
+    mcp.AddTool("self.pomodoro.set_duration",
+        "Define a duracao do foco e da pausa do pomodoro, em minutos (dentro da faixa seguranca)",
+        PropertyList({
+            Property("study_min", kPropertyTypeInteger, DeviceConfig::kMinStudyMin, DeviceConfig::kMaxStudyMin),
+            Property("break_min", kPropertyTypeInteger, DeviceConfig::kMinBreakMin, DeviceConfig::kMaxBreakMin),
+        }),
+        [&cfg](const PropertyList& p) -> ReturnValue {
+            int study = p["study_min"].value<int>();
+            int brk = p["break_min"].value<int>();
+            cfg.set_pomodoro(study, brk);
+            char buf[64];
+            snprintf(buf, sizeof(buf), "Pomodoro ajustado: %d min de foco, %d min de pausa.",
+                     cfg.study_minutes(), cfg.break_minutes());
+            return std::string(buf);
+        });
+
     mcp.AddTool("self.pomodoro.start", "Inicia um ciclo de pomodoro (foco + pausa)",
         PropertyList(), [&pomo](const PropertyList&) -> ReturnValue { pomo.Start(); return true; });
 
