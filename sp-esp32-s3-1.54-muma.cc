@@ -97,7 +97,8 @@ private:
     Display* display_;
     esp_timer_handle_t touchpad_timer_;
     Cst816d* cst816d_;
-    lv_obj_t* pomodoro_label_ = nullptr;   // label do cronometro, criado sob demanda
+    lv_obj_t* pomodoro_label_ = nullptr;   // relogio digital do cronometro, criado sob demanda
+    lv_obj_t* pomodoro_tomato_ = nullptr;  // "tomate" (formas LVGL, sem asset) ao fundo do relogio
     lv_obj_t* stage_badge_ = nullptr;      // selo de estagio, criado sob demanda
     esp_io_expander_handle_t io_expander_ = NULL;
     esp_lcd_panel_handle_t panel_ = nullptr;
@@ -278,23 +279,65 @@ private:
                                      DISPLAY_WIDTH, DISPLAY_HEIGHT, DISPLAY_OFFSET_X, DISPLAY_OFFSET_Y, DISPLAY_MIRROR_X, DISPLAY_MIRROR_Y, DISPLAY_SWAP_XY);
     }
 
-    // Cronometro do pomodoro no canto (TOP_RIGHT nao e usado por
-    // nenhum widget padrao do LcdDisplay -- top_bar_/status_bar_ ficam
-    // em TOP_MID, emoji em CENTER, bottom_bar_ em BOTTOM_MID). Criado
-    // na primeira chamada, nao antes: SetupUI() do display roda depois
-    // do construtor do board (Application::Initialize() chama os dois
-    // em sequencia), entao lv_screen_active() ainda nao existiria se a
-    // gente tentasse criar isto no construtor.
+    // Cronometro do pomodoro no MEIO da tela, sobre um "tomate" --
+    // desenhado com formas basicas do LVGL (elipse vermelha + folha
+    // verde), sem depender de nenhum asset de imagem -- mesma filosofia
+    // do pacote de emoji padrao: nunca trava por falta de arte. Como o
+    // emoji de humor do bichinho tambem fica no CENTER (widgets padrao
+    // do LcdDisplay: top_bar_/status_bar_ em TOP_MID, emoji em CENTER,
+    // bottom_bar_ em BOTTOM_MID), o tomate+relogio SOBREPOEM o rosto do
+    // bichinho só enquanto o pomodoro estiver rodando -- escondidos
+    // (LV_OBJ_FLAG_HIDDEN) o resto do tempo, revelando o rosto de novo.
+    // Criados na primeira chamada, nao no construtor: SetupUI() do
+    // display roda depois do construtor do board (Application::Initialize()
+    // chama os dois em sequencia), entao lv_screen_active() ainda nao
+    // existiria se a gente tentasse criar isto antes.
     void UpdatePomodoroLabel(int seconds_remaining) {
         DisplayLockGuard lock(display_);
-        if (pomodoro_label_ == nullptr) {
+        if (pomodoro_tomato_ == nullptr) {
+            // Corpo do tomate: elipse vermelha (lv_obj comum com
+            // radius=CIRCLE fica eliptico quando largura != altura).
+            pomodoro_tomato_ = lv_obj_create(lv_screen_active());
+            lv_obj_remove_style_all(pomodoro_tomato_);
+            lv_obj_set_size(pomodoro_tomato_, 160, 140);
+            lv_obj_set_style_radius(pomodoro_tomato_, LV_RADIUS_CIRCLE, 0);
+            lv_obj_set_style_bg_color(pomodoro_tomato_, lv_color_hex(0xE8483C), 0);
+            lv_obj_set_style_bg_opa(pomodoro_tomato_, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(pomodoro_tomato_, 0, 0);
+            lv_obj_align(pomodoro_tomato_, LV_ALIGN_CENTER, 0, 0);
+            lv_obj_add_flag(pomodoro_tomato_, LV_OBJ_FLAG_HIDDEN);
+
+            // Folha/cabinho: pequena elipse verde no topo do tomate.
+            lv_obj_t* leaf = lv_obj_create(pomodoro_tomato_);
+            lv_obj_remove_style_all(leaf);
+            lv_obj_set_size(leaf, 64, 32);
+            lv_obj_set_style_radius(leaf, LV_RADIUS_CIRCLE, 0);
+            lv_obj_set_style_bg_color(leaf, lv_color_hex(0x4CAF50), 0);
+            lv_obj_set_style_bg_opa(leaf, LV_OPA_COVER, 0);
+            lv_obj_set_style_border_width(leaf, 0, 0);
+            lv_obj_align(leaf, LV_ALIGN_TOP_MID, 0, -14);
+
+            // Relogio digital, criado DEPOIS do tomate -> desenhado por
+            // cima dele (ordem dos filhos = ordem de desenho no LVGL).
             pomodoro_label_ = lv_label_create(lv_screen_active());
-            lv_obj_align(pomodoro_label_, LV_ALIGN_TOP_RIGHT, -4, 4);
+            lv_obj_set_style_text_color(pomodoro_label_, lv_color_white(), 0);
+            // Sem fonte grande de digitos embutida no firmware ainda --
+            // aumenta o texto normal via transform em vez de depender
+            // de um asset de fonte novo (fica um pouco mais "pixelado"
+            // que uma fonte nativa nesse tamanho, mas funciona sem
+            // precisar gerar/embutir nada).
+            lv_obj_set_style_transform_scale_x(pomodoro_label_, 384, 0);  // 1.5x
+            lv_obj_set_style_transform_scale_y(pomodoro_label_, 384, 0);
+            lv_obj_align(pomodoro_label_, LV_ALIGN_CENTER, 0, 0);
+            lv_obj_add_flag(pomodoro_label_, LV_OBJ_FLAG_HIDDEN);
         }
         if (seconds_remaining <= 0) {
-            lv_label_set_text(pomodoro_label_, "");
+            lv_obj_add_flag(pomodoro_tomato_, LV_OBJ_FLAG_HIDDEN);
+            lv_obj_add_flag(pomodoro_label_, LV_OBJ_FLAG_HIDDEN);
             return;
         }
+        lv_obj_clear_flag(pomodoro_tomato_, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(pomodoro_label_, LV_OBJ_FLAG_HIDDEN);
         // buf[16], nao buf[8]: na pratica "MM:SS" nunca passa de 5 chars
         // (pomodoro clampado a kMaxStudyMin=40min), mas o GCC (com
         // -Werror=format-truncation) calcula o pior caso teorico pra um
@@ -311,7 +354,7 @@ private:
     // nao emoji -- a fonte de texto do board (font_noto_sans_basic) e
     // "basic charset", sem glifo de emoji; o emoji fica so na imagem
     // raster do EmojiCollection. BOTTOM_RIGHT fica livre (bottom_bar_
-    // e BOTTOM_MID, pomodoro_label_ ja ocupa TOP_RIGHT).
+    // e BOTTOM_MID, o tomate+relogio do pomodoro ficam no CENTER).
     void UpdateStageBadge() {
         DisplayLockGuard lock(display_);
         if (stage_badge_ == nullptr) {
