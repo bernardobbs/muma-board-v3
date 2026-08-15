@@ -136,24 +136,21 @@ merge upstream do fork conflitar com essas mudanças):
   `CheckNetworkReady()` (mesma razão do label do cronômetro: precisa
   que `SetupUI()` já tenha rodado, e é a única garantia assíncrona que
   temos disso além do próprio tick do pomodoro).
-- **Pomodoro em ciclos contínuos, com anúncio por voz**: `PomodoroEngine::Tick()`
-  não vai mais pra `IDLE` quando a pausa termina sozinha -- encadeia
-  direto num foco novo (`EnterPhase(STUDY, ...)`), sem esperar a criança
-  mandar "começa" de novo. Só para de verdade com `Stop()` (por voz ou
-  toque). Fim do foco e fim da pausa tocam uma fala gravada de verdade
-  (`Lang::Sounds::OGG_POMODORO_FOCUS_DONE` / `OGG_POMODORO_BREAK_DONE`,
-  ver `mcp_tools.cc`), em vez dos bipes genéricos (`OGG_SUCCESS`/
-  `OGG_POPUP`) usados antes. Esses dois `.ogg` **não fazem parte do
-  código** -- são áudio gerado por TTS fora do firmware (formato
-  confirmado nos sons que já existem em `main/assets/common/`: Ogg
-  container, codec Opus, mono, 16kHz) e precisam ser colocados em
-  `main/assets/common/pomodoro_focus_done.ogg` e
-  `.../pomodoro_break_done.ogg` no clone do `78/xiaozhi-esp32` antes de
-  compilar -- `scripts/gen_lang.py` (chamado pelo build) lê essa pasta e
-  gera a constante `Lang::Sounds::OGG_<NOME_DO_ARQUIVO>` automaticamente
-  pra qualquer `.ogg` que encontrar ali, sem precisar editar nenhum
-  Kconfig/CMake. **Sem esses dois arquivos, o build quebra** (símbolo
-  inexistente) -- não é opcional como os GIFs do bichinho.
+- **Pomodoro em ciclos contínuos, aviso tipo sineta de escola**:
+  `PomodoroEngine::Tick()` não vai mais pra `IDLE` quando a pausa
+  termina sozinha -- encadeia direto num foco novo
+  (`EnterPhase(STUDY, ...)`), sem esperar a criança mandar "começa" de
+  novo. Só para de verdade com `Stop()` (por voz ou toque). Fim do foco
+  toca UMA batida de `OGG_POPUP` (começou a pausa); fim da pausa toca
+  DUAS batidas seguidas do mesmo som (recomeçou o foco) -- convenção
+  simples de "uma vez = pausa, duas vezes = volta a focar", sem precisar
+  de nenhum áudio novo (`AudioService::PushPacketToDecodeQueue` é fila
+  FIFO de verdade, então duas chamadas de `PlaySound()` em sequência
+  tocam as duas batidas uma atrás da outra em vez de cortar uma na
+  outra). Chegou a existir uma versão com anúncio por voz (TTS,
+  `OGG_POMODORO_FOCUS_DONE`/`OGG_POMODORO_BREAK_DONE` gerados fora do
+  firmware) -- revertida por decisão de manter simples, sem depender de
+  gerar/instalar áudio novo.
 
   Efeito colateral aceito: o bônus de "voltar rápido da pausa"
   (`SetOnQuickReturn`, `DeviceConfig::quick_return_minutes`) ficou
