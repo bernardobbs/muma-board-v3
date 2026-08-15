@@ -430,7 +430,27 @@ public:
         // de verdade. Ver OnGotIp() pra explicacao de por que isso NAO
         // usa SetNetworkEventCallback (a Application tambem usa esse
         // slot e sobrescreveria o nosso).
-        esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &OnGotIp, nullptr, nullptr);
+        //
+        // O WifiManager (que cria o event loop padrao do ESP-IDF) so
+        // inicializa DEPOIS do construtor do board rodar -- confirmado
+        // em log real (nossas features de familia aparecem antes de
+        // "WifiManager: Initializing..."). Sem isso, o registro abaixo
+        // falhava CALADO (sem log de erro nenhum) porque o event loop
+        // ainda nao existia. esp_netif_init()/esp_event_loop_create_default()
+        // sao seguras de chamar de novo depois -- retornam
+        // ESP_ERR_INVALID_STATE na segunda vez, que a gente ignora.
+        esp_err_t netif_err = esp_netif_init();
+        if (netif_err != ESP_OK && netif_err != ESP_ERR_INVALID_STATE) {
+            ESP_LOGE(TAG, "esp_netif_init falhou: %s", esp_err_to_name(netif_err));
+        }
+        esp_err_t loop_err = esp_event_loop_create_default();
+        if (loop_err != ESP_OK && loop_err != ESP_ERR_INVALID_STATE) {
+            ESP_LOGE(TAG, "esp_event_loop_create_default falhou: %s", esp_err_to_name(loop_err));
+        }
+        esp_err_t reg_err = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &OnGotIp, nullptr, nullptr);
+        if (reg_err != ESP_OK) {
+            ESP_LOGE(TAG, "Falha ao registrar handler de IP_EVENT_STA_GOT_IP: %s", esp_err_to_name(reg_err));
+        }
     }
 
     virtual Led* GetLed() override {
