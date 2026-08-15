@@ -465,6 +465,11 @@ public:
         if (start_err != ESP_OK) {
             ESP_LOGE(TAG, "esp_timer_start_periodic (network_check) falhou: %s", esp_err_to_name(start_err));
         }
+        // Log incondicional (nao so em erro) -- prova que este bloco de
+        // codigo de fato executou nesta build, independente do timer
+        // depois disparar ou nao.
+        ESP_LOGI(TAG, "network_check_timer_ criado (handle=%p) create_err=%s start_err=%s",
+                 (void*)network_check_timer_, esp_err_to_name(create_err), esp_err_to_name(start_err));
     }
 
     virtual Led* GetLed() override {
