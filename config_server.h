@@ -46,6 +46,8 @@ private:
     static esp_err_t PostRoutineDef(httpd_req_t* req);
     static esp_err_t GetAdminConfig(httpd_req_t* req);
     static esp_err_t PostAdminConfig(httpd_req_t* req);
+    static esp_err_t GetAdminAlarm(httpd_req_t* req);
+    static esp_err_t PostAdminAlarm(httpd_req_t* req);
     static esp_err_t GetAdminCsrf(httpd_req_t* req);
 
     static bool ReadBody(httpd_req_t* req, std::string& out, size_t max_len = 4096);

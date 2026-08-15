@@ -5,6 +5,7 @@
 #include "pomodoro_tool.h"
 #include "semaphore_tool.h"
 #include "child_profile.h"
+#include "alarm_tool.h"
 #include "web_assets.h"
 
 #include <cJSON.h>
@@ -84,6 +85,8 @@ void ConfigServer::RegisterHandlers() {
     Register("/api/admin/routine", HTTP_POST, PostRoutineDef);
     Register("/api/admin/config",  HTTP_GET,  GetAdminConfig);
     Register("/api/admin/config",  HTTP_POST, PostAdminConfig);
+    Register("/api/admin/alarm",   HTTP_GET,  GetAdminAlarm);
+    Register("/api/admin/alarm",   HTTP_POST, PostAdminAlarm);
     Register("/api/admin/csrf",    HTTP_GET,  GetAdminCsrf);
 }
 
@@ -290,6 +293,31 @@ esp_err_t ConfigServer::PostRoutineDef(httpd_req_t* req) {
     if (!ReadBody(req, body, 8192)) return SendBadRequest(req, "corpo invalido ou grande demais");
     if (!RoutineEngine::GetInstance().ReplaceDefinition(body))
         return SendBadRequest(req, "JSON invalido -- rotina anterior mantida");
+    return SendJson(req, "{\"ok\":true}");
+}
+
+esp_err_t ConfigServer::GetAdminAlarm(httpd_req_t* req) {
+    if (!RequireAdmin(req)) return ESP_OK;
+    return SendJson(req, AlarmEngine::GetInstance().ToJson());
+}
+
+esp_err_t ConfigServer::PostAdminAlarm(httpd_req_t* req) {
+    if (!RequireAdmin(req)) return ESP_OK;
+    if (!RequireCsrf(req)) return ESP_OK;
+    std::string body;
+    if (!ReadBody(req, body)) return SendBadRequest(req, "corpo invalido");
+    cJSON* root = cJSON_Parse(body.c_str());
+    if (root == nullptr) return SendBadRequest(req, "JSON invalido");
+
+    cJSON* hour = cJSON_GetObjectItem(root, "hour");
+    cJSON* minute = cJSON_GetObjectItem(root, "minute");
+    cJSON* enabled = cJSON_GetObjectItem(root, "enabled");
+    if (!cJSON_IsNumber(hour) || !cJSON_IsNumber(minute) || !cJSON_IsBool(enabled)) {
+        cJSON_Delete(root);
+        return SendBadRequest(req, "esperado {hour, minute, enabled}");
+    }
+    AlarmEngine::GetInstance().Set(hour->valueint, minute->valueint, cJSON_IsTrue(enabled));
+    cJSON_Delete(root);
     return SendJson(req, "{\"ok\":true}");
 }
 

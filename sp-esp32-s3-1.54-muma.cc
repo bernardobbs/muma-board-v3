@@ -34,9 +34,11 @@
 #include "tamagotchi_tool.h"
 #include "routine_engine.h"
 #include "semaphore_tool.h"
+#include "alarm_tool.h"
 #include "mcp_tools.h"
 #include "config_server.h"
 #include "pet_emoji_collection.h"
+#include "pomodoro_tomato.h"
 #include "display/lvgl_display/lvgl_theme.h"
 
 #define TAG "Spotpear_esp32_s3_lcd_1_54"
@@ -98,8 +100,9 @@ private:
     esp_timer_handle_t touchpad_timer_;
     Cst816d* cst816d_;
     lv_obj_t* pomodoro_label_ = nullptr;   // relogio digital do cronometro, criado sob demanda
-    lv_obj_t* pomodoro_tomato_ = nullptr;  // "tomate" (formas LVGL, sem asset) ao fundo do relogio
+    lv_obj_t* pomodoro_tomato_ = nullptr;  // imagem do tomate (pomodoro_tomato.png) ao fundo do relogio
     lv_obj_t* stage_badge_ = nullptr;      // selo de estagio, criado sob demanda
+    lv_obj_t* alarm_banner_ = nullptr;     // tela cheia enquanto o alarme toca, criada sob demanda
     esp_io_expander_handle_t io_expander_ = NULL;
     esp_lcd_panel_handle_t panel_ = nullptr;
 
@@ -280,10 +283,10 @@ private:
     }
 
     // Cronometro do pomodoro no MEIO da tela, sobre um "tomate" --
-    // desenhado com formas basicas do LVGL (elipse vermelha + folha
-    // verde), sem depender de nenhum asset de imagem -- mesma filosofia
-    // do pacote de emoji padrao: nunca trava por falta de arte. Como o
-    // emoji de humor do bichinho tambem fica no CENTER (widgets padrao
+    // pomodoro_tomato.png (gerado por scripts/gen_pomodoro_tomato.py),
+    // decodificado como PNG normal via LvglRawImage, mesmo mecanismo do
+    // pacote de emoji padrao. Como o emoji de humor do bichinho tambem
+    // fica no CENTER (widgets padrao
     // do LcdDisplay: top_bar_/status_bar_ em TOP_MID, emoji em CENTER,
     // bottom_bar_ em BOTTOM_MID), o tomate+relogio SOBREPOEM o rosto do
     // bichinho só enquanto o pomodoro estiver rodando -- escondidos
@@ -295,27 +298,14 @@ private:
     void UpdatePomodoroLabel(int seconds_remaining) {
         DisplayLockGuard lock(display_);
         if (pomodoro_tomato_ == nullptr) {
-            // Corpo do tomate: elipse vermelha (lv_obj comum com
-            // radius=CIRCLE fica eliptico quando largura != altura).
-            pomodoro_tomato_ = lv_obj_create(lv_screen_active());
-            lv_obj_remove_style_all(pomodoro_tomato_);
-            lv_obj_set_size(pomodoro_tomato_, 160, 140);
-            lv_obj_set_style_radius(pomodoro_tomato_, LV_RADIUS_CIRCLE, 0);
-            lv_obj_set_style_bg_color(pomodoro_tomato_, lv_color_hex(0xE8483C), 0);
-            lv_obj_set_style_bg_opa(pomodoro_tomato_, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_width(pomodoro_tomato_, 0, 0);
+            // Imagem real do tomate (pomodoro_tomato.png, embutida por
+            // scripts/gen_pomodoro_tomato.py) -- LvglRawImage decodifica
+            // via LV_COLOR_FORMAT_RAW_ALPHA, mesmo mecanismo que o
+            // pacote de emoji padrao usa pros PNGs dele.
+            pomodoro_tomato_ = lv_image_create(lv_screen_active());
+            lv_image_set_src(pomodoro_tomato_, GetPomodoroTomatoImage()->image_dsc());
             lv_obj_align(pomodoro_tomato_, LV_ALIGN_CENTER, 0, 0);
             lv_obj_add_flag(pomodoro_tomato_, LV_OBJ_FLAG_HIDDEN);
-
-            // Folha/cabinho: pequena elipse verde no topo do tomate.
-            lv_obj_t* leaf = lv_obj_create(pomodoro_tomato_);
-            lv_obj_remove_style_all(leaf);
-            lv_obj_set_size(leaf, 64, 32);
-            lv_obj_set_style_radius(leaf, LV_RADIUS_CIRCLE, 0);
-            lv_obj_set_style_bg_color(leaf, lv_color_hex(0x4CAF50), 0);
-            lv_obj_set_style_bg_opa(leaf, LV_OPA_COVER, 0);
-            lv_obj_set_style_border_width(leaf, 0, 0);
-            lv_obj_align(leaf, LV_ALIGN_TOP_MID, 0, -14);
 
             // Relogio digital, criado DEPOIS do tomate -> desenhado por
             // cima dele (ordem dos filhos = ordem de desenho no LVGL).
@@ -326,8 +316,8 @@ private:
             // de um asset de fonte novo (fica um pouco mais "pixelado"
             // que uma fonte nativa nesse tamanho, mas funciona sem
             // precisar gerar/embutir nada).
-            lv_obj_set_style_transform_scale_x(pomodoro_label_, 384, 0);  // 1.5x
-            lv_obj_set_style_transform_scale_y(pomodoro_label_, 384, 0);
+            lv_obj_set_style_transform_scale_x(pomodoro_label_, 640, 0);  // 2.5x -- ficou pequeno em 1.5x
+            lv_obj_set_style_transform_scale_y(pomodoro_label_, 640, 0);
             lv_obj_align(pomodoro_label_, LV_ALIGN_CENTER, 0, 0);
             lv_obj_add_flag(pomodoro_label_, LV_OBJ_FLAG_HIDDEN);
         }
@@ -362,6 +352,35 @@ private:
             lv_obj_align(stage_badge_, LV_ALIGN_BOTTOM_RIGHT, -4, -4);
         }
         lv_label_set_text(stage_badge_, Tamagotchi::GetInstance().StageName().c_str());
+    }
+
+    // Alarme: cobre a tela toda enquanto estiver tocando (AlarmEngine::
+    // firing() == true) -- some com qualquer outra coisa na tela ate
+    // desligar, de proposito (e pra chamar atencao mesmo). Desligar e
+    // via boot_button_ (ver InitializeButtons) ou por voz
+    // (self.alarm.dismiss), ou sozinho depois de kMaxRingSeconds.
+    void ShowAlarmBanner() {
+        DisplayLockGuard lock(display_);
+        if (alarm_banner_ == nullptr) {
+            alarm_banner_ = lv_obj_create(lv_screen_active());
+            lv_obj_remove_style_all(alarm_banner_);
+            lv_obj_set_size(alarm_banner_, DISPLAY_WIDTH, DISPLAY_HEIGHT);
+            lv_obj_set_style_bg_color(alarm_banner_, lv_color_hex(0xFF9800), 0);
+            lv_obj_set_style_bg_opa(alarm_banner_, LV_OPA_COVER, 0);
+            lv_obj_center(alarm_banner_);
+
+            lv_obj_t* label = lv_label_create(alarm_banner_);
+            lv_label_set_text(label, "ALARME!\n\nToque no botao\npara desligar");
+            lv_obj_set_style_text_align(label, LV_TEXT_ALIGN_CENTER, 0);
+            lv_obj_set_style_text_color(label, lv_color_white(), 0);
+            lv_obj_center(label);
+        }
+        lv_obj_clear_flag(alarm_banner_, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    void HideAlarmBanner() {
+        DisplayLockGuard lock(display_);
+        if (alarm_banner_ != nullptr) lv_obj_add_flag(alarm_banner_, LV_OBJ_FLAG_HIDDEN);
     }
 
     // ConfigServer precisa de rede -- so sobe depois que o Wi-Fi conectar
@@ -407,6 +426,12 @@ private:
 
     void InitializeButtons() {
         boot_button_.OnClick([this]() {
+            // Alarme tocando tem prioridade sobre tudo -- botao so desliga
+            // ele, nao entra em modo de configuracao nem alterna o chat.
+            if (AlarmEngine::GetInstance().firing()) {
+                AlarmEngine::GetInstance().Dismiss();
+                return;
+            }
             auto& app = Application::GetInstance();
             if (app.GetDeviceState() == kDeviceStateStarting) {
                 EnterWifiConfigMode();
@@ -432,6 +457,19 @@ private:
         PomodoroEngine::GetInstance().Initialize();
         Tamagotchi::GetInstance().Initialize();
         RoutineEngine::GetInstance().Initialize();
+        AlarmEngine::GetInstance().Initialize();
+
+        // Alarme: tela cheia + som ao disparar, som repetido enquanto
+        // toca (self.alarm.dismiss ou o boot_button_ desligam, ver
+        // InitializeButtons), tela some quando desligar.
+        AlarmEngine::GetInstance().SetOnFired([this]() {
+            ShowAlarmBanner();
+            Application::GetInstance().PlaySound(Lang::Sounds::OGG_EXCLAMATION);
+        });
+        AlarmEngine::GetInstance().SetOnRingTick([]() {
+            Application::GetInstance().PlaySound(Lang::Sounds::OGG_EXCLAMATION);
+        });
+        AlarmEngine::GetInstance().SetOnDismissed([this]() { HideAlarmBanner(); });
 
         // Humor do bichinho -> emoji na tela. As chaves de MoodName() ja
         // seguem o vocabulario padrao do xiaozhi (neutral/happy/thinking/

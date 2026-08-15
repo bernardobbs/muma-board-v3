@@ -6,8 +6,10 @@
 #include "tamagotchi_tool.h"
 #include "routine_engine.h"
 #include "semaphore_tool.h"
+#include "alarm_tool.h"
 
 #include <esp_log.h>
+#include <cstdio>
 
 #define TAG "McpTools"
 
@@ -122,6 +124,31 @@ void RegisterAll() {
         PropertyList(), [&sem](const PropertyList&) -> ReturnValue {
             if (!ChildProfile::GetInstance().regulation_tools_enabled()) return false;
             sem.CancelSend(); return true; });
+
+    // ---------------- alarme ----------------
+    auto& alarm = AlarmEngine::GetInstance();
+    mcp.AddTool("self.alarm.set", "Define ou desliga o alarme diario (horario de 0-23h e 0-59min)",
+        PropertyList({
+            Property("hour", kPropertyTypeInteger, 0, 23),
+            Property("minute", kPropertyTypeInteger, 0, 59),
+            Property("enabled", kPropertyTypeBoolean),
+        }),
+        [&alarm](const PropertyList& p) -> ReturnValue {
+            int h = p["hour"].value<int>();
+            int m = p["minute"].value<int>();
+            bool en = p["enabled"].value<bool>();
+            alarm.Set(h, m, en);
+            if (!en) return std::string("Alarme desligado.");
+            char buf[32];
+            snprintf(buf, sizeof(buf), "Alarme marcado para %02d:%02d.", h, m);
+            return std::string(buf);
+        });
+
+    mcp.AddTool("self.alarm.status", "Consulta o horario do alarme e se esta ativado",
+        PropertyList(), [&alarm](const PropertyList&) -> ReturnValue { return alarm.ToJson(); });
+
+    mcp.AddTool("self.alarm.dismiss", "Desliga o alarme que esta tocando agora",
+        PropertyList(), [&alarm](const PropertyList&) -> ReturnValue { alarm.Dismiss(); return true; });
 
     ESP_LOGI(TAG, "Ferramentas MCP registradas para %s",
              ChildProfile::GetInstance().name().c_str());
