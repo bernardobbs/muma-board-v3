@@ -25,8 +25,6 @@
 #include <esp_sleep.h>
 #include <driver/rtc_io.h>
 #include <cstdio>
-#include <esp_event.h>
-#include <esp_netif.h>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
 // board original) ---
@@ -323,20 +321,35 @@ private:
         lv_label_set_text(stage_badge_, Tamagotchi::GetInstance().StageName().c_str());
     }
 
-    // ConfigServer precisa de rede -- so sobe quando o Wi-Fi conectar de
-    // verdade. NAO usamos SetNetworkEventCallback pra isso: descoberto
-    // via log real que Application::Initialize() (main/application.cc)
+    // ConfigServer precisa de rede -- so sobe depois que o Wi-Fi conectar
+    // e a ativacao com o backend terminar.
+    //
+    // Tentativa 1 (SetNetworkEventCallback): Application::Initialize()
     // TAMBEM chama board.SetNetworkEventCallback(...) depois do
-    // construtor do board rodar, pra notificacoes de UI ("Conectando a
-    // Wi-Fi..."). Como e um unico std::function (nao uma lista), essa
-    // chamada SOBRESCREVE silenciosamente qualquer callback que a gente
-    // registre aqui -- sem erro nenhum, so nunca dispara. O evento
-    // nativo do ESP-IDF aceita multiplos handlers e nao tem esse
-    // conflito.
-    static void OnGotIp(void* arg, esp_event_base_t base, int32_t event_id, void* event_data) {
+    // construtor do board rodar, pra notificacoes de UI -- e como e um
+    // unico std::function (nao uma lista), sobrescrevia silenciosamente
+    // a nossa. Confirmado em log real (ConfigServer nunca subia).
+    //
+    // Tentativa 2 (esp_event_handler_instance_register no IP_EVENT):
+    // registro nao dava erro nenhum, mas o callback tambem nunca
+    // disparava -- provavelmente alguma sutileza de timing do event
+    // loop padrao do ESP-IDF que nao deu pra confirmar so lendo log.
+    //
+    // Solucao atual: polling simples, sem depender de nenhum mecanismo
+    // de callback/evento assincrono. Um timer periodico checa
+    // Application::GetDeviceState() (API que este proprio arquivo ja
+    // usa em InitializeButtons()) ate ver kDeviceStateIdle -- estado
+    // que so acontece depois que Wi-Fi conectou E a ativacao com o
+    // backend (OTA + MQTT) terminou, confirmado no log:
+    // "StateMachine: State: activating -> idle".
+    esp_timer_handle_t network_check_timer_ = nullptr;
+
+    static void CheckNetworkReady(void* arg) {
         auto& board = (Spotpear_esp32_s3_lcd_1_54&)Board::GetInstance();
+        if (Application::GetInstance().GetDeviceState() != kDeviceStateIdle) return;
         ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
         board.UpdateStageBadge();  // mostra o estagio ja salvo, sem esperar a proxima evolucao
+        esp_timer_stop(board.network_check_timer_);
     }
 
     void InitializeButtons() {
@@ -352,7 +365,7 @@ private:
 
     // --- companheiro afetivo -------------------------------------------
     // Tudo que NAO depende de rede: perfil, regras, engines e as tools
-    // MCP. O ConfigServer entra separado, em SetNetworkEventCallback,
+    // MCP. O ConfigServer entra separado, via polling em CheckNetworkReady(),
     // porque precisa da rede de pe.
     void InitializeFamilyFeatures() {
         ChildProfile::GetInstance().Load();   // nome, nascimento, toggle de regulacao
@@ -393,7 +406,7 @@ private:
 
         // Selo de estagio: atualiza a cada evolucao. O estagio JA
         // carregado do NVS (se o bichinho ja evoluiu antes do reboot)
-        // e mostrado separado, la no NetworkEventCallback do construtor
+        // e mostrado separado, em CheckNetworkReady()
         // -- mesma razao do cronometro, UpdateStageBadge() tambem cria
         // um lv_obj_t e SetupUI() ainda nao rodou aqui.
         Tamagotchi::GetInstance().SetOnEvolved([this](TamaStage) { UpdateStageBadge(); });
@@ -426,31 +439,16 @@ public:
 
         InitializeFamilyFeatures();
 
-        // ConfigServer precisa de rede -- so sobe quando o Wi-Fi conectar
-        // de verdade. Ver OnGotIp() pra explicacao de por que isso NAO
-        // usa SetNetworkEventCallback (a Application tambem usa esse
-        // slot e sobrescreveria o nosso).
-        //
-        // O WifiManager (que cria o event loop padrao do ESP-IDF) so
-        // inicializa DEPOIS do construtor do board rodar -- confirmado
-        // em log real (nossas features de familia aparecem antes de
-        // "WifiManager: Initializing..."). Sem isso, o registro abaixo
-        // falhava CALADO (sem log de erro nenhum) porque o event loop
-        // ainda nao existia. esp_netif_init()/esp_event_loop_create_default()
-        // sao seguras de chamar de novo depois -- retornam
-        // ESP_ERR_INVALID_STATE na segunda vez, que a gente ignora.
-        esp_err_t netif_err = esp_netif_init();
-        if (netif_err != ESP_OK && netif_err != ESP_ERR_INVALID_STATE) {
-            ESP_LOGE(TAG, "esp_netif_init falhou: %s", esp_err_to_name(netif_err));
-        }
-        esp_err_t loop_err = esp_event_loop_create_default();
-        if (loop_err != ESP_OK && loop_err != ESP_ERR_INVALID_STATE) {
-            ESP_LOGE(TAG, "esp_event_loop_create_default falhou: %s", esp_err_to_name(loop_err));
-        }
-        esp_err_t reg_err = esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, &OnGotIp, nullptr, nullptr);
-        if (reg_err != ESP_OK) {
-            ESP_LOGE(TAG, "Falha ao registrar handler de IP_EVENT_STA_GOT_IP: %s", esp_err_to_name(reg_err));
-        }
+        // ConfigServer precisa de rede -- polling em vez de
+        // callback/evento assincrono (ver comentario acima de
+        // CheckNetworkReady() pro historico de por que).
+        esp_timer_create_args_t network_timer_args = {};
+        network_timer_args.callback = &CheckNetworkReady;
+        network_timer_args.arg = nullptr;
+        network_timer_args.dispatch_method = ESP_TIMER_TASK;
+        network_timer_args.name = "network_check";
+        esp_timer_create(&network_timer_args, &network_check_timer_);
+        esp_timer_start_periodic(network_check_timer_, 1000000);  // checa a cada 1s
     }
 
     virtual Led* GetLed() override {
