@@ -20,13 +20,20 @@ merge upstream do fork conflitar com essas mudanças):
   inicializa os 3 engines (pomodoro, bichinho, rotina), liga os
   callbacks de brilho/volume/humor e registra as tools MCP.
 - O `ConfigServer::Start(...)` **não** entra no construtor -- ele
-  precisa de rede. Vai dentro de um `SetNetworkEventCallback` também
-  registrado no construtor, que só chama `Start()` quando o callback
-  disparar com `NetworkEvent::Connected`. Confirmado lendo
-  `main/boards/common/wifi_board.h`/`.cc` no repo base: é esse o
-  mecanismo real de "depois que o Wi-Fi conectar" (não existia uma
-  chamada solta pra colar fora do construtor como a v3 anterior sugeria
-  -- é um callback assíncrono).
+  precisa de rede. **Correção feita depois de testar em hardware real**:
+  a primeira versão usava `SetNetworkEventCallback` (registrado no
+  construtor, disparando em `NetworkEvent::Connected`) -- só que
+  `Application::Initialize()` (`main/application.cc`) **também** chama
+  `board.SetNetworkEventCallback(...)`, depois do construtor do board
+  já ter rodado, pra atualizar notificações de UI ("Conectando a
+  Wi-Fi..."). Como é um único `std::function` (não uma lista), essa
+  chamada **sobrescreve silenciosamente** a nossa -- sem erro, sem log,
+  só nunca mais dispara. Isso derrubava o `ConfigServer` inteiro
+  (`/` e `/admin` davam "connection refused") sem nenhuma pista no log
+  de boot. Trocado por um handler nativo do ESP-IDF
+  (`esp_event_handler_instance_register(IP_EVENT, IP_EVENT_STA_GOT_IP, ...)`),
+  que aceita múltiplos handlers independentes e não conflita com nada
+  que a `Application` já faz.
 - Humor do bichinho -> emoji na tela usa `Tamagotchi::MoodName()`
   direto. As chaves já são o vocabulário padrão do xiaozhi
   (`"neutral"`, `"happy"`, `"thinking"`, `"surprised"`, `"funny"`),

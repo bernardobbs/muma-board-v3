@@ -148,12 +148,13 @@ O que falta é só a **arte por espécie**:
   "interrompeu no meio".
 - **Integração com o board real aplicada**: `sp-esp32-s3-1.54-muma.cc`
   (raiz deste repo) é o arquivo completo do board com
-  `InitializeFamilyFeatures()` chamado no construtor e
-  `ConfigServer::Start()` disparado via `SetNetworkEventCallback` em
-  `NetworkEvent::Connected` -- confirmado no código de
-  `main/boards/common/wifi_board.h`/`.cc` do repo base que é esse o
-  mecanismo real de "depois que o Wi-Fi conectar". Ver
-  `board_integration.md` pro detalhe de cada peça.
+  `InitializeFamilyFeatures()` chamado no construtor.
+- **`ConfigServer` não subia de jeito nenhum** (`/` e `/admin` davam
+  "connection refused") -- achado testando em hardware real. Causa:
+  `Application::Initialize()` também usa `SetNetworkEventCallback` e
+  sobrescrevia silenciosamente o nosso. Corrigido com o evento nativo
+  `IP_EVENT_STA_GOT_IP` do ESP-IDF. Ver `board_integration.md` pro
+  detalhe completo.
 - **Label do cronômetro na tela**: `UpdatePomodoroLabel(s)` mostra
   `MM:SS` no canto superior direito, criado sob demanda no primeiro
   tick (não dá pra criar no construtor -- `SetupUI()` do display só
