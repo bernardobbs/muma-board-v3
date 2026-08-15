@@ -118,12 +118,14 @@ void PomodoroEngine::Tick() {
         if (state_ == PomodoroState::STUDY || state_ == PomodoroState::WARNING) {
             EnterPhase(PomodoroState::BREAK, break_seconds_);
         } else if (state_ == PomodoroState::BREAK) {
-            EnterIdle();
-            // So dispara aqui -- pausa chegou ao fim sozinha. Stop()
-            // tambem leva pra IDLE, mas nao passa por aqui, entao nunca
-            // aciona esse bonus (interromper nao e "cumprir a pausa").
-            break_completed_at_us_ = esp_timer_get_time();  // abre a janela do bonus de volta rapida
+            // Pausa cumprida ate o fim (Stop() nao passa por aqui, entao
+            // nunca aciona isso -- interromper nao e "cumprir a pausa").
+            // Antes ia pra IDLE e esperava a crianca mandar "comeca" de
+            // novo; agora encadeia direto num novo foco, sem parar --
+            // pedido pra o pomodoro rodar em ciclos continuos sozinho,
+            // so parando de verdade com Stop().
             if (on_break_completed_) on_break_completed_();
+            EnterPhase(PomodoroState::STUDY, study_seconds_);
         }
     }
 }

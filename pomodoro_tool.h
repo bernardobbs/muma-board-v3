@@ -36,6 +36,13 @@ public:
     // mesma logica de SetOnBreakCompleted, pra nao dar pra ganhar o
     // bonus so reiniciando o ciclo no meio). So dispara uma vez por
     // pausa cumprida (ver Start()).
+    //
+    // DORMENTE desde que a pausa passou a encadear direto num foco novo
+    // (Tick()) em vez de esperar em IDLE: nao existe mais o momento de
+    // "a crianca decidiu voltar" pra recompensar -- break_completed_at_us_
+    // nunca mais e setado. Deixado registrado (nao removido) porque
+    // ainda pode fazer sentido reaproveitar como bonus de sequencia (N
+    // ciclos seguidos), se um dia quiserem isso.
     void SetOnQuickReturn(std::function<void()> cb) { on_quick_return_ = cb; }
 
 private:

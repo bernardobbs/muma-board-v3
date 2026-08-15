@@ -136,6 +136,32 @@ merge upstream do fork conflitar com essas mudanças):
   `CheckNetworkReady()` (mesma razão do label do cronômetro: precisa
   que `SetupUI()` já tenha rodado, e é a única garantia assíncrona que
   temos disso além do próprio tick do pomodoro).
+- **Pomodoro em ciclos contínuos, com anúncio por voz**: `PomodoroEngine::Tick()`
+  não vai mais pra `IDLE` quando a pausa termina sozinha -- encadeia
+  direto num foco novo (`EnterPhase(STUDY, ...)`), sem esperar a criança
+  mandar "começa" de novo. Só para de verdade com `Stop()` (por voz ou
+  toque). Fim do foco e fim da pausa tocam uma fala gravada de verdade
+  (`Lang::Sounds::OGG_POMODORO_FOCUS_DONE` / `OGG_POMODORO_BREAK_DONE`,
+  ver `mcp_tools.cc`), em vez dos bipes genéricos (`OGG_SUCCESS`/
+  `OGG_POPUP`) usados antes. Esses dois `.ogg` **não fazem parte do
+  código** -- são áudio gerado por TTS fora do firmware (formato
+  confirmado nos sons que já existem em `main/assets/common/`: Ogg
+  container, codec Opus, mono, 16kHz) e precisam ser colocados em
+  `main/assets/common/pomodoro_focus_done.ogg` e
+  `.../pomodoro_break_done.ogg` no clone do `78/xiaozhi-esp32` antes de
+  compilar -- `scripts/gen_lang.py` (chamado pelo build) lê essa pasta e
+  gera a constante `Lang::Sounds::OGG_<NOME_DO_ARQUIVO>` automaticamente
+  pra qualquer `.ogg` que encontrar ali, sem precisar editar nenhum
+  Kconfig/CMake. **Sem esses dois arquivos, o build quebra** (símbolo
+  inexistente) -- não é opcional como os GIFs do bichinho.
+
+  Efeito colateral aceito: o bônus de "voltar rápido da pausa"
+  (`SetOnQuickReturn`, `DeviceConfig::quick_return_minutes`) ficou
+  dormente -- ele recompensava a criança por reiniciar o foco sozinha
+  logo depois de uma pausa cumprida, mas agora isso acontece sozinho,
+  sempre, então não sobrou nenhum "voltar" pra recompensar. O código
+  (e o campo em `/admin`) não foi removido, só parou de disparar --
+  ver comentário em `pomodoro_tool.h`.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 

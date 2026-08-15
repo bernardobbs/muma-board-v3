@@ -24,17 +24,22 @@ static void WireEngines() {
     auto& routine = RoutineEngine::GetInstance();
 
     // Pomodoro alimenta o bichinho e o humor/GIF. Cada troca de fase
-    // toca um som -- sem isso, a unica pista de que o foco acabou e o
-    // pausa comecou era o numero no relogio continuar contando (feedback
-    // real: "nao avisou que passou pra pausa"). O texto "Foco"/"Pausa"
-    // junto do relogio (ver UpdatePomodoroLabel) reforca visualmente.
+    // anuncia por VOZ (nao so um bipe) -- sem isso, a unica pista de que
+    // o foco acabou e a pausa comecou era o numero no relogio continuar
+    // contando (feedback real: "nao avisou que passou pra pausa"). O
+    // texto "Foco"/"Pausa" junto do relogio (ver UpdatePomodoroLabel)
+    // reforca visualmente. OGG_POMODORO_FOCUS_DONE/OGG_POMODORO_BREAK_DONE
+    // sao falas gravadas em main/assets/common/ -- gerados fora do
+    // firmware (TTS + conversao pra ogg/opus 16kHz mono, mesmo formato
+    // dos outros sons dessa pasta) e pegos automaticamente pelo
+    // scripts/gen_lang.py no build, um por arquivo .ogg encontrado ali.
     pomo.SetOnPhaseChanged([&tama](PomodoroState state) {
         switch (state) {
             case PomodoroState::STUDY:   tama.SetMood(TamaMood::FOCADO); break;
             case PomodoroState::WARNING: tama.SetMood(TamaMood::AVISO); break;
             case PomodoroState::BREAK:
                 tama.OnPomodoroCompleted();   // +1 ponto por completar o foco
-                Application::GetInstance().PlaySound(Lang::Sounds::OGG_SUCCESS);
+                Application::GetInstance().PlaySound(Lang::Sounds::OGG_POMODORO_FOCUS_DONE);
                 break;
             case PomodoroState::IDLE:
                 tama.SetMood(TamaMood::NEUTRO);
@@ -45,12 +50,13 @@ static void WireEngines() {
 
     // +1 ponto extra por CUMPRIR a pausa (nao pular direto pra outro
     // foco) -- so dispara quando a pausa termina sozinha, nunca com Stop().
-    // Som aqui (nao no PomodoroState::IDLE generico) porque Stop() TAMBEM
-    // leva pra IDLE -- nao queremos tocar "acabou a pausa" quando a
-    // crianca so cancelou o ciclo.
+    // Fala aqui (nao no PomodoroState::IDLE generico) porque Stop() TAMBEM
+    // levava pra IDLE -- nao queremos anunciar "acabou a pausa" quando a
+    // crianca so cancelou o ciclo. O novo foco que comeca em seguida
+    // (PomodoroEngine::Tick()) e quem encadeia o proximo ciclo sozinho.
     pomo.SetOnBreakCompleted([&tama]() {
         tama.OnBreakRespected();
-        Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+        Application::GetInstance().PlaySound(Lang::Sounds::OGG_POMODORO_BREAK_DONE);
     });
 
     // Bonus extra por voltar ao foco dentro da janela configurada em
