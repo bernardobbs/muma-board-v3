@@ -345,8 +345,18 @@ private:
     esp_timer_handle_t network_check_timer_ = nullptr;
 
     static void CheckNetworkReady(void* arg) {
+        // Log só no primeiro tick, pra confirmar que o timer de fato
+        // dispara -- sem isso, um timer que nunca roda e um timer que
+        // roda mas nunca ve o estado certo ficam indistinguiveis no log.
+        static bool logged_first_tick = false;
+        if (!logged_first_tick) {
+            ESP_LOGI(TAG, "CheckNetworkReady: primeiro tick, estado atual = %d (idle = %d)",
+                     (int)Application::GetInstance().GetDeviceState(), (int)kDeviceStateIdle);
+            logged_first_tick = true;
+        }
         auto& board = (Spotpear_esp32_s3_lcd_1_54&)Board::GetInstance();
         if (Application::GetInstance().GetDeviceState() != kDeviceStateIdle) return;
+        ESP_LOGI(TAG, "CheckNetworkReady: estado idle detectado, subindo ConfigServer");
         ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
         board.UpdateStageBadge();  // mostra o estagio ja salvo, sem esperar a proxima evolucao
         esp_timer_stop(board.network_check_timer_);
@@ -447,8 +457,14 @@ public:
         network_timer_args.arg = nullptr;
         network_timer_args.dispatch_method = ESP_TIMER_TASK;
         network_timer_args.name = "network_check";
-        esp_timer_create(&network_timer_args, &network_check_timer_);
-        esp_timer_start_periodic(network_check_timer_, 1000000);  // checa a cada 1s
+        esp_err_t create_err = esp_timer_create(&network_timer_args, &network_check_timer_);
+        if (create_err != ESP_OK) {
+            ESP_LOGE(TAG, "esp_timer_create (network_check) falhou: %s", esp_err_to_name(create_err));
+        }
+        esp_err_t start_err = esp_timer_start_periodic(network_check_timer_, 1000000);  // checa a cada 1s
+        if (start_err != ESP_OK) {
+            ESP_LOGE(TAG, "esp_timer_start_periodic (network_check) falhou: %s", esp_err_to_name(start_err));
+        }
     }
 
     virtual Led* GetLed() override {
