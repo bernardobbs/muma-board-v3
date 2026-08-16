@@ -20,9 +20,14 @@ void Tamagotchi::Initialize() {
     // "Family Companion OS" foram unificadas numa lista so. Nao
     // restringimos por faixa etaria: quem escolhe e a crianca, nao o
     // firmware, e gosto nao e coisa que se determine por idade.
+    // Gato primeiro -- e o padrao de quem ainda nao escolheu
+    // (species_index_ cai em 0 quando nao ha nada salvo, ver abaixo) --
+    // e o Lobo logo depois, os dois com arte customizada de verdade
+    // hoje (ver pet_gifs/), na frente das especies que ainda usam o
+    // rosto generico padrao.
     catalog_ = {
-        {"lobo","Lobo","Atlas"},        {"raposa","Raposa","Fox"},
-        {"gato","Gato","Nino"},         {"dragao","Dragao","Draco"},
+        {"gato","Gato","Nino"},         {"lobo","Lobo","Atlas"},
+        {"raposa","Raposa","Fox"},      {"dragao","Dragao","Draco"},
         {"unicornio","Unicornio","Lili"},{"coelha","Coelha","Lua"},
         {"panda","Panda","Pingo"},      {"pintinho","Pintinho","Bibi"},
     };
