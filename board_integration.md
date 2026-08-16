@@ -78,6 +78,24 @@ merge upstream do fork conflitar com essas mudanças):
   troca pra arte customizada por espécie **se** houver GIFs em
   `pet_gifs/` (ver `pet_emoji_collection.h`/`.cc`) -- sem GIFs, o
   pacote padrão continua valendo, nunca trava por falta de arte.
+- **GIFs do bichinho: rosto redondo estilo emoji, fundo corrigido**.
+  Gato e Lobo trocaram de "personagem chibi de corpo inteiro" (64px)
+  pra rosto redondo estilo emoji (128px), cobrindo as 21 chaves do
+  pacote padrão (não só as 5 do Tamagotchi) -- assim a arte customizada
+  vale em qualquer humor que a conversa com a IA disparar, não só nos
+  momentos do pomodoro. Bug real encontrado testando em hardware: o
+  fundo nunca saía transparente de verdade -- o Pillow descarta o canal
+  alpha silenciosamente ao converter RGBA→P (obrigatório pro formato
+  GIF) sem reservar um índice de cor pra transparência e passar
+  `transparency=<índice>` pro `save()`. Corrigido com color-key: compara
+  cada pixel contra os 4 cantos da imagem individualmente (não a média
+  deles -- fundo com sombra em degrade tem tons diferentes nos cantos, a
+  média não bate com nenhum) e apaga o que for parecido. Das 42 imagens
+  geradas nessa rodada (2 espécies × 21 humores), 15 saíram com
+  composição ruim da própria geração por IA (padrão/ladrilho de vários
+  rostinhos em vez de UM rosto, sem relação com o bug de fundo) --
+  mantido o GIF antigo de 64px nesses casos até serem regenerados, em
+  vez de descartar e cair no genérico.
 - Volume também é aplicado de verdade agora: `GetAudioCodec()` nesta
   placa devolve sempre a mesma instância `static`, então
   `SetOutputVolume(v)` funciona igual ao `SetBrightness` do backlight
