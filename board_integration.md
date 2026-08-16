@@ -198,6 +198,22 @@ merge upstream do fork conflitar com essas mudanças):
   sempre, então não sobrou nenhum "voltar" pra recompensar. O código
   (e o campo em `/admin`) não foi removido, só parou de disparar --
   ver comentário em `pomodoro_tool.h`.
+- **Hora automática via NTP -- corrige um bug real de fuso em dobro**.
+  Havia um diagnóstico deixado no código (sem correção) suspeitando de
+  double-shift de fuso horário; **confirmado**: `Ota::CheckVersion`
+  (`main/ota.cc`, upstream, não é nosso) faz
+  `ts += timezone_offset * 60 * 1000` **antes** de `settimeofday()` --
+  ou seja, o epoch que o servidor de ativação manda já vem deslocado
+  pelo fuso. Nossa própria `DeviceConfig::ApplyTimezone`
+  (`setenv("TZ", ...)` + `tzset()`) desloca de novo em `localtime_r` --
+  resultado: hora local errada em dobro (confirmado numa foto real de
+  teste, com o relógio mostrando um horário destoante). `CheckNetworkReady()`
+  agora também inicia `esp_netif_sntp` (mesmo ponto onde o `ConfigServer`
+  sobe -- rede já confirmada) com `pool.ntp.org`. NTP devolve epoch UTC
+  de verdade, sem nenhum fuso embutido, então aplicar nossa TZ por cima
+  fica certo, uma vez só. Resync é automático e periódico por conta do
+  próprio lwip (a cada 1h por padrão) -- corrige sozinho mesmo se o OTA
+  rodar de novo depois e escrever a hora errada por cima.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 
