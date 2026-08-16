@@ -233,15 +233,27 @@ merge upstream do fork conflitar com essas mudanças):
   taxa de amostragem do próprio cabeçalho Opus, não assume um valor
   fixo.
 
-  **Achado testando em hardware real, mesma classe de bug do `.cc` novo
-  documentado abaixo**: `.ogg` novo em `main/assets/common/` exige
-  `idf.py reconfigure` antes do `build`, senão o build QUEBRA (não só
-  "não pega a mudança" -- erro de símbolo inexistente, tipo
-  `OGG_OLD_ALARM` não declarado). Causa: o `add_custom_command` que gera
-  `assets/lang_config.h` no `main/CMakeLists.txt` só lista
-  `language.json` e `gen_lang.py` como `DEPENDS` -- a pasta
-  `main/assets/common/` não entra nessa lista, então o ninja não sabe
-  que precisa regenerar o header quando um `.ogg` novo aparece ali.
+  **Achado testando em hardware real, e pior do que parecia**: `.ogg`
+  novo em `main/assets/common/` exige forçar a regeneração de
+  `assets/lang_config.h`, senão o build QUEBRA (símbolo inexistente,
+  tipo `OGG_OLD_ALARM` não declarado). Causa: o `add_custom_command` que
+  gera esse header no `main/CMakeLists.txt` só lista `language.json` e
+  `gen_lang.py` como `DEPENDS` -- a pasta `main/assets/common/` não
+  entra nessa lista, então o ninja (que decide se re-executa a regra
+  comparando datas dos arquivos em `DEPENDS`, não por reconfigurar o
+  CMake) não tem motivo pra regenerar o header quando um `.ogg` novo
+  aparece ali.
+
+  **`idf.py reconfigure` sozinho NÃO resolve** -- confirmado tentando em
+  hardware real: reconfigure refaz as regras do `build.ninja`, mas quem
+  decide se a regra roda de novo é o ninja comparando datas, e nenhuma
+  das dependências listadas mudou. O que funciona de verdade é apagar o
+  arquivo gerado, forçando o ninja a recriar do zero (sem ele existir,
+  não tem "data" pra comparar):
+  ```
+  rm main/assets/lang_config.h   # ou Remove-Item no PowerShell
+  idf.py build
+  ```
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 
