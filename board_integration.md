@@ -233,6 +233,16 @@ merge upstream do fork conflitar com essas mudanças):
   taxa de amostragem do próprio cabeçalho Opus, não assume um valor
   fixo.
 
+  **Achado testando em hardware real, mesma classe de bug do `.cc` novo
+  documentado abaixo**: `.ogg` novo em `main/assets/common/` exige
+  `idf.py reconfigure` antes do `build`, senão o build QUEBRA (não só
+  "não pega a mudança" -- erro de símbolo inexistente, tipo
+  `OGG_OLD_ALARM` não declarado). Causa: o `add_custom_command` que gera
+  `assets/lang_config.h` no `main/CMakeLists.txt` só lista
+  `language.json` e `gen_lang.py` como `DEPENDS` -- a pasta
+  `main/assets/common/` não entra nessa lista, então o ninja não sabe
+  que precisa regenerar o header quando um `.ogg` novo aparece ali.
+
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 
 Achado testando em hardware real: o `file(GLOB boards/${BOARD_DIR}/*.cc)`
