@@ -609,8 +609,21 @@ private:
         // isso, "timer criado sem erro" e "NTP respondeu" ficariam
         // indistinguiveis (mesma logica do log de network_check_timer_
         // no construtor: nao supor que funcionou, confirmar).
-        sntp_config.sync_cb = [](struct timeval* tv) {
-            ESP_LOGI(TAG, "SNTP respondeu: epoch UTC = %lld", (long long)tv->tv_sec);
+        //
+        // %lld pra time_t (64 bits) sai CORROMPIDO aqui -- confirmado em
+        // hardware real ("epoch UTC = ld", sem o numero) -- porque este
+        // projeto usa CONFIG_NEWLIB_NANO_FORMAT=y (sdkconfig.defaults,
+        // pra economizar flash) e o printf "nano" da newlib nao suporta
+        // bem formato de 64 bits. Loga a hora LOCAL ja formatada (usa
+        // %d/%02d, so inteiros de 32 bits, sem esse problema) em vez do
+        // epoch cru -- direto conferivel contra o relogio real, sem
+        // precisar converter nada.
+        sntp_config.sync_cb = [](struct timeval*) {
+            time_t now = time(nullptr);
+            struct tm ti;
+            localtime_r(&now, &ti);
+            ESP_LOGI(TAG, "SNTP respondeu: horario local agora = %04d-%02d-%02d %02d:%02d:%02d",
+                     ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday, ti.tm_hour, ti.tm_min, ti.tm_sec);
         };
         esp_err_t sntp_err = esp_netif_sntp_init(&sntp_config);
         if (sntp_err == ESP_OK) sntp_err = esp_netif_sntp_start();
