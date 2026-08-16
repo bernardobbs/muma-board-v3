@@ -254,6 +254,20 @@ merge upstream do fork conflitar com essas mudanças):
   rm main/assets/lang_config.h   # ou Remove-Item no PowerShell
   idf.py build
   ```
+- **Reboot voltava pro rosto genérico, mesmo com espécie customizada
+  escolhida**. Mesma causa-raiz do bug já corrigido na troca de
+  bichinho pela página: `Tamagotchi::SetMood()` só dispara o redraw
+  quando o humor MUDA. No boot, o humor carregado do NVS já nasce igual
+  ao valor inicial -- nunca "muda" -- então `SetEmotion()` nunca era
+  chamado com a coleção customizada certa; só acontecia por acidente na
+  primeira mudança real de humor depois de ligar (ex.: primeiro
+  pomodoro do dia). `ApplyPetEmojiCollection` já rodava no construtor,
+  mas só troca a coleção nos temas -- não redesenha nada sozinha, e não
+  dava pra chamar `SetEmotion()` ali mesmo (`SetupUI()` do display ainda
+  não tinha rodado). Corrigido igual ao selo de estágio: forçando
+  `GetDisplay()->SetEmotion(...)` com o humor atual dentro de
+  `CheckNetworkReady()`, mesmo ponto onde `UpdateStageBadge()` já fazia
+  isso pelo mesmo motivo.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 

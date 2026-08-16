@@ -588,6 +588,21 @@ private:
         ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
         board.UpdateStageBadge();  // mostra o estagio ja salvo, sem esperar a proxima evolucao
 
+        // Mesma logica do selo de estagio, mas pro rosto: sem isso, todo
+        // reboot voltava pro pacote de emoji GENERICO, mesmo com uma
+        // especie customizada ja escolhida (feedback real: "desliga e
+        // liga nunca volta pro personagem, fica sempre nas imagens
+        // genericas"). Causa -- SetMood() so dispara o redraw quando o
+        // humor MUDA (ver tamagotchi_tool.cc); no boot o humor carregado
+        // do NVS ja nasce igual ao valor inicial, entao nunca "muda" e
+        // SetEmotion() nunca era chamado com a colecao customizada certa
+        // -- so acontecia por acidente na primeira mudanca real de humor
+        // (ex.: primeiro pomodoro). ApplyPetEmojiCollection ja rodou no
+        // construtor (antes do SetupUI() existir, por isso nao dava pra
+        // chamar SetEmotion la); aqui a tela ja existe, entao forca
+        // mostrar o humor atual com a colecao certa direto no boot.
+        board.GetDisplay()->SetEmotion(Tamagotchi::GetInstance().MoodName().c_str());
+
         // Horario automatico via NTP -- CONFIRMADO o bug que o
         // diagnostico anterior so suspeitava: Ota::CheckVersion (main/
         // ota.cc) faz "ts += timezone_offset * 60 * 1000" ANTES de
