@@ -694,13 +694,16 @@ private:
 
         // Alarme: tela cheia + som ao disparar, som repetido enquanto
         // toca (self.alarm.dismiss ou o boot_button_ desligam, ver
-        // InitializeButtons), tela some quando desligar.
+        // InitializeButtons), tela some quando desligar. OGG_OLD_ALARM
+        // (bipe estilo despertador antigo, "pi pi pi pi pi") em vez do
+        // OGG_EXCLAMATION generico -- pedido pra ser bem mais irritante,
+        // proposital, pra nao dar pra ignorar o alarme.
         AlarmEngine::GetInstance().SetOnFired([this]() {
             ShowAlarmBanner();
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_EXCLAMATION);
+            Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);
         });
         AlarmEngine::GetInstance().SetOnRingTick([]() {
-            Application::GetInstance().PlaySound(Lang::Sounds::OGG_EXCLAMATION);
+            Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);
         });
         AlarmEngine::GetInstance().SetOnDismissed([this]() { HideAlarmBanner(); });
 

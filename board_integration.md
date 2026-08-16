@@ -214,6 +214,24 @@ merge upstream do fork conflitar com essas mudanças):
   fica certo, uma vez só. Resync é automático e periódico por conta do
   próprio lwip (a cada 1h por padrão) -- corrige sozinho mesmo se o OTA
   rodar de novo depois e escrever a hora errada por cima.
+- **Bipe de despertador antigo (alarme + fim de cada fase do pomodoro)**.
+  Trocado `OGG_EXCLAMATION`/`OGG_POPUP` por `OGG_OLD_ALARM` (pedido pra
+  ser bem mais irritante, proposital) em `AlarmEngine::SetOnFired`/
+  `SetOnRingTick` (`sp-esp32-s3-1.54-muma.cc`) e nos dois pontos do
+  pomodoro em `mcp_tools.cc` (mantida a convenção de 1 bipe pra pausa,
+  2 pra recomeçar o foco -- só troca o som, não a contagem). O arquivo
+  **não mora neste repo** -- é um som (Freesound, "Bedside Clock Alarm")
+  convertido pra Ogg/Opus e colocado direto em
+  `main/assets/common/old_alarm.ogg` no clone do `78/xiaozhi-esp32`
+  (mesma pasta dos outros sons genéricos: `success.ogg`, `popup.ogg`
+  etc.) -- `scripts/gen_lang.py` gera a constante `OGG_OLD_ALARM`
+  automaticamente a partir do nome do arquivo, sem precisar editar
+  Kconfig/CMake. **Sem esse arquivo o build quebra** (símbolo
+  inexistente) -- diferente dos GIFs do bichinho, que são opcionais.
+  Detalhe de formato: veio direto em Opus 48kHz (os outros sons daqui
+  são 16kHz) -- funciona igual, porque `AudioService::PlaySound` lê a
+  taxa de amostragem do próprio cabeçalho Opus, não assume um valor
+  fixo.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 

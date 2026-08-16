@@ -30,18 +30,20 @@ static void WireEngines() {
     // relogio (ver UpdatePomodoroLabel) reforca visualmente.
     //
     // Convencao tipo sineta de escola: UMA batida pra pausa, DUAS pra
-    // recomecar o foco -- reusa OGG_POPUP (som ja existente no firmware,
-    // nenhum arquivo novo precisa ser gerado). PlaySound() enfileira
-    // (AudioService::PushPacketToDecodeQueue e uma fila FIFO de verdade,
-    // nao substitui o que ja esta tocando), entao chamar duas vezes
-    // seguidas toca as duas batidas em sequencia, sem cortar uma na outra.
+    // recomecar o foco. Trocado de OGG_POPUP (bipe suave) pra
+    // OGG_OLD_ALARM (bipe estilo despertador antigo, "pi pi pi pi pi")
+    // -- pedido pra ser bem mais irritante no fim de cada fase, pra nao
+    // dar pra ignorar. PlaySound() enfileira (AudioService::
+    // PushPacketToDecodeQueue e uma fila FIFO de verdade, nao substitui
+    // o que ja esta tocando), entao chamar duas vezes seguidas toca as
+    // duas batidas em sequencia, sem cortar uma na outra.
     pomo.SetOnPhaseChanged([&tama](PomodoroState state) {
         switch (state) {
             case PomodoroState::STUDY:   tama.SetMood(TamaMood::FOCADO); break;
             case PomodoroState::WARNING: tama.SetMood(TamaMood::AVISO); break;
             case PomodoroState::BREAK:
                 tama.OnPomodoroCompleted();   // +1 ponto por completar o foco
-                Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);  // 1 sineta: comecou a pausa
+                Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);  // 1 bipe: comecou a pausa
                 break;
             case PomodoroState::IDLE:
                 tama.SetMood(TamaMood::NEUTRO);
@@ -58,8 +60,8 @@ static void WireEngines() {
     // (PomodoroEngine::Tick()) e quem encadeia o proximo ciclo sozinho.
     pomo.SetOnBreakCompleted([&tama]() {
         tama.OnBreakRespected();
-        Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);  // 2 sinetas: recomecou o foco
-        Application::GetInstance().PlaySound(Lang::Sounds::OGG_POPUP);
+        Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);  // 2 bipes: recomecou o foco
+        Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);
     });
 
     // Bonus extra por voltar ao foco dentro da janela configurada em
