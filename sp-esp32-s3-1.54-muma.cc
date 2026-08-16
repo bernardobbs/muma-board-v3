@@ -692,8 +692,17 @@ private:
         // especie tiver GIFs proprios. CreatePetEmojiCollection devolve
         // nullptr pra especies sem GIF ainda -- nesse caso NAO troca
         // nada, e o pacote padrao (rosto generico) continua valendo.
-        Tamagotchi::GetInstance().SetOnSpeciesChanged([](const std::string& id) {
+        //
+        // Forca redesenhar o humor ATUAL com a colecao nova na hora --
+        // sem isso, Tamagotchi::SetMood() so dispara o redraw quando o
+        // humor de fato MUDA (guarda "evita redesenhar a toa" em
+        // tamagotchi_tool.cc), entao trocar de bichinho na pagina podia
+        // nao mostrar nada de novo por bastante tempo, se o humor
+        // continuasse o mesmo -- pareceu "o GIF nao carregou" ao testar
+        // trocando de especie varias vezes seguidas rapido.
+        Tamagotchi::GetInstance().SetOnSpeciesChanged([this](const std::string& id) {
             ApplyPetEmojiCollection(id);
+            GetDisplay()->SetEmotion(Tamagotchi::GetInstance().MoodName().c_str());
         });
         ApplyPetEmojiCollection(Tamagotchi::GetInstance().species_id());  // especie ja salva, se houver
 
