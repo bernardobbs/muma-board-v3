@@ -109,6 +109,7 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
     <button id="semVerde">🟢 Verde</button>
     <button id="semAmarelo">🟡 Amarelo</button>
     <button id="semVermelho">🔴 Vermelho</button>
+    <button id="semRecuperacao">🔵 Melhor</button>
   </div>
   <div class="note" id="semPending" style="display:none;margin-top:12px">
     Quer avisar seus pais sobre isso?
@@ -230,7 +231,7 @@ async function loadConfig(){
   }
 }
 
-const SEM_BTN={verde:"semVerde",amarelo:"semAmarelo",vermelho:"semVermelho"};
+const SEM_BTN={verde:"semVerde",amarelo:"semAmarelo",vermelho:"semVermelho",recuperacao:"semRecuperacao"};
 let semPoll=null;
 async function loadSemaphore(){
   const s=await get("/api/semaphore");

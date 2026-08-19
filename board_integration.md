@@ -338,6 +338,17 @@ só o estado `RECUPERACAO`, que não existe hoje. Antes de construir um
 `OverloadSemaphore` existente com esse estado a mais do que duplicar o
 sistema inteiro. Mesma lógica pro "Transition Engine" (§12): o aviso de
 `BREAK_WARNING` no pomodoro já cobre parte do que essa seção descreve.
+- **`OverloadSemaphore` ganha o estado `RECUPERACAO`** (decisão tomada:
+  estender em vez de criar um "Regulation Engine" paralelo, ver bullet
+  acima). Sinaliza que ela está voltando ao normal depois de um
+  amarelo/vermelho -- continua a mesma regra de ouro (só ela ativa, o
+  aparelho nunca muda de nível sozinho). Tratado como o verde pra fins
+  de notificação (`Evaluate()` em `semaphore_tool.cc`): nunca dispara
+  aviso automático pros pais -- desescalar não é urgente -- e cancela
+  qualquer confirmação pendente de um nível anterior. Chave de voz/web:
+  `"recuperacao"` (`self.semaphore.set_level` e `POST /api/semaphore/set`).
+  Botão novo em `/` (🔵 Melhor) -- o resto do JS (`SEM_BTN`) já era
+  genérico, só precisou de uma entrada a mais no mapa.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 

@@ -373,7 +373,8 @@ esp_err_t ConfigServer::PostSemaphoreSet(httpd_req_t* req) {
     if (v == "verde") sem.SetLevel(OverloadLevel::VERDE);
     else if (v == "amarelo") sem.SetLevel(OverloadLevel::AMARELO);
     else if (v == "vermelho") sem.SetLevel(OverloadLevel::VERMELHO);
-    else return SendBadRequest(req, "nivel invalido -- use verde, amarelo ou vermelho");
+    else if (v == "recuperacao") sem.SetLevel(OverloadLevel::RECUPERACAO);
+    else return SendBadRequest(req, "nivel invalido -- use verde, amarelo, vermelho ou recuperacao");
 
     return SendJson(req, sem.StatusJson());
 }

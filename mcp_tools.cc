@@ -190,7 +190,8 @@ void RegisterAll() {
     // chamada (nao so uma vez no boot), pra que ligar/desligar em /admin
     // faca efeito na hora, sem precisar reiniciar o aparelho.
     mcp.AddTool("self.semaphore.set_level",
-        "Registra o nivel de sobrecarga que ela mesma sinalizou: verde, amarelo ou vermelho",
+        "Registra o nivel de sobrecarga que ela mesma sinalizou: verde, amarelo, vermelho ou "
+        "recuperacao (voltando ao normal depois de um amarelo/vermelho)",
         PropertyList({ Property("nivel", kPropertyTypeString) }),
         [&sem](const PropertyList& p) -> ReturnValue {
             if (!ChildProfile::GetInstance().regulation_tools_enabled())
@@ -199,7 +200,8 @@ void RegisterAll() {
             if (v == "verde") sem.SetLevel(OverloadLevel::VERDE);
             else if (v == "amarelo") sem.SetLevel(OverloadLevel::AMARELO);
             else if (v == "vermelho") sem.SetLevel(OverloadLevel::VERMELHO);
-            else return std::string("Nivel invalido. Use verde, amarelo ou vermelho.");
+            else if (v == "recuperacao") sem.SetLevel(OverloadLevel::RECUPERACAO);
+            else return std::string("Nivel invalido. Use verde, amarelo, vermelho ou recuperacao.");
             return std::string("Anotado: " + sem.LevelName());
         });
 

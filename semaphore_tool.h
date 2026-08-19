@@ -2,7 +2,10 @@
 #include <string>
 #include <functional>
 
-enum class OverloadLevel { VERDE, AMARELO, VERMELHO };
+// RECUPERACAO = ela sinalizando que esta voltando ao normal depois de
+// um amarelo/vermelho -- nao e "pior que vermelho", e uma desescalada,
+// tratada como o verde pra fins de notificacao (ver Evaluate()).
+enum class OverloadLevel { VERDE, AMARELO, VERMELHO, RECUPERACAO };
 
 // Semaforo de sobrecarga -- toggle generico em ChildProfile::regulation_tools_enabled().
 // Regra de ouro: NUNCA muda de nivel sozinho -- so a crianca ativa, por

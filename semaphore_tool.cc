@@ -8,9 +8,10 @@
 
 std::string OverloadSemaphore::LevelName() const {
     switch (level_) {
-        case OverloadLevel::VERDE:    return "verde";
-        case OverloadLevel::AMARELO:  return "amarelo";
-        case OverloadLevel::VERMELHO: return "vermelho";
+        case OverloadLevel::VERDE:       return "verde";
+        case OverloadLevel::AMARELO:     return "amarelo";
+        case OverloadLevel::VERMELHO:    return "vermelho";
+        case OverloadLevel::RECUPERACAO: return "recuperacao";
     }
     return "verde";
 }
@@ -33,7 +34,10 @@ void OverloadSemaphore::Evaluate(OverloadLevel level) {
         should = cfg.notify_on_red();
         automatic = cfg.auto_send_red();
     } else {
-        pending_ = false;               // voltou ao verde: cancela pendencia
+        // VERDE ou RECUPERACAO: nunca notifica -- desescalada nunca e
+        // urgente -- e cancela qualquer pendencia (ela ja esta voltando,
+        // nao faz sentido ainda pedir confirmacao de um nivel anterior).
+        pending_ = false;
         return;
     }
 
