@@ -268,6 +268,42 @@ merge upstream do fork conflitar com essas mudanças):
   `GetDisplay()->SetEmotion(...)` com o humor atual dentro de
   `CheckNetworkReady()`, mesmo ponto onde `UpdateStageBadge()` já fazia
   isso pelo mesmo motivo.
+- **Notificações MCP de evento do dispositivo (Pomodoro → IA), Fase 1 da
+  proposta "NUMA v3"**. Diferente de tudo antes desta linha, mexe em
+  **arquivos do core** (`main/application.h`/`.cc`, compartilhados por
+  todas as placas do fork) -- por isso **não têm cópia neste repo**
+  (`muma-board-v3` só espelha `main/boards/spotpear/sp-esp32-s3-1.54-muma/`),
+  só registrados aqui pra rastreabilidade. `Application::SendMcpNotification(method, params)`
+  é função nova (`application.h`/`.cc`), NÃO reaproveita
+  `Application::SendMcpMessage(payload)` existente -- essa é o
+  transporte de respostas JSON-RPC correlacionadas por `id` (só chamada
+  por `McpServer::ReplyResult`/`ReplyError`), contrato diferente de uma
+  notificação fire-and-forget sem `id`. A nova função monta o envelope
+  `{"jsonrpc":"2.0","method":...,"params":...}` com cJSON e despacha
+  pelo `SendMcpMessage()` já existente por dentro (transporte
+  reaproveitado, só a API pública é nova).
+
+  Ligada em `mcp_tools.cc` (`WireEngines()`) nos 3 pontos que a
+  especificação pedia, usando os callbacks que o `PomodoroEngine` já
+  tinha (`on_phase_changed_`/`on_break_completed_`) -- nenhuma lógica de
+  estado nova, só notificação a mais nos handlers existentes:
+  - `pomodoro.completed` (`duration_minutes`) -- fim do foco.
+  - `pomodoro.focus_warning` (`remaining_seconds`) -- **nome corrigido**
+    em relação à proposta original, que chamava isso de
+    `pomodoro.break_warning` mas citava o trecho de código do estado
+    `WARNING`, que só dispara antes do fim do **foco**
+    (`state_ == PomodoroState::STUDY` em `pomodoro_tool.cc`), nunca da
+    pausa -- hoje não existe aviso nenhum perto do fim da pausa.
+  - `pomodoro.break_completed` (`break_duration_minutes`) -- fim da
+    pausa. **Divergência da proposta original**: a especificação sugeria
+    que a IA devia "convidar o usuário a iniciar o próximo ciclo" nesse
+    evento -- não faz mais sentido desde que o pomodoro passou a
+    encadear os ciclos sozinho (ver bullet da sineta acima); o texto da
+    Knowledge Base do servidor precisa refletir isso.
+
+  O lado do servidor (tratar a notificação como evento do dispositivo,
+  não como fala do usuário) **não foi tocado** -- fora do escopo deste
+  repo, ver `ATUALIZACAO_NUMA.md` seção 4.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 

@@ -11,12 +11,25 @@
 #include "application.h"
 #include "assets/lang_config.h"
 
+#include <cJSON.h>
 #include <esp_log.h>
 #include <cstdio>
 
 #define TAG "McpTools"
 
 namespace mcp_tools {
+
+// Notificacao MCP fire-and-forget de evento do dispositivo (sem "id",
+// nunca vira mensagem falsa do usuario no servidor -- ver
+// Application::SendMcpNotification). Usada pelos eventos do pomodoro
+// abaixo, todos com o mesmo formato: {"jsonrpc":"2.0","method":method,
+// "params":{key:value}}.
+static void NotifyIntEvent(const char* method, const char* key, int value) {
+    cJSON* params = cJSON_CreateObject();
+    cJSON_AddNumberToObject(params, key, value);
+    Application::GetInstance().SendMcpNotification(method, params);
+    cJSON_Delete(params);
+}
 
 static void WireEngines() {
     auto& tama = Tamagotchi::GetInstance();
@@ -37,13 +50,28 @@ static void WireEngines() {
     // PushPacketToDecodeQueue e uma fila FIFO de verdade, nao substitui
     // o que ja esta tocando), entao chamar duas vezes seguidas toca as
     // duas batidas em sequencia, sem cortar uma na outra.
+    // Notificacoes MCP pro servidor/IA reagirem por voz (pedido na
+    // especificacao "NUMA v3" -- ver ATUALIZACAO_NUMA.md). Nomes
+    // ajustados pro que o codigo REALMENTE faz, nao pro que o documento
+    // descrevia: o estado WARNING so dispara antes do fim do FOCO (ver
+    // Tick(), condicao "state_ == PomodoroState::STUDY"), nunca antes do
+    // fim da pausa -- a doc chamava isso de "break_warning" mas citava
+    // esse mesmo trecho de codigo do foco, uma inconsistencia interna
+    // dela. Chamado de "focus_warning" aqui pra nao enganar quem for
+    // configurar a Knowledge Base do servidor com base no nome.
     pomo.SetOnPhaseChanged([&tama](PomodoroState state) {
         switch (state) {
             case PomodoroState::STUDY:   tama.SetMood(TamaMood::FOCADO); break;
-            case PomodoroState::WARNING: tama.SetMood(TamaMood::AVISO); break;
+            case PomodoroState::WARNING:
+                tama.SetMood(TamaMood::AVISO);
+                NotifyIntEvent("pomodoro.focus_warning", "remaining_seconds",
+                               DeviceConfig::GetInstance().warning_seconds());
+                break;
             case PomodoroState::BREAK:
                 tama.OnPomodoroCompleted();   // +1 ponto por completar o foco
                 Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);  // 1 bipe: comecou a pausa
+                NotifyIntEvent("pomodoro.completed", "duration_minutes",
+                               DeviceConfig::GetInstance().study_minutes());
                 break;
             case PomodoroState::IDLE:
                 tama.SetMood(TamaMood::NEUTRO);
@@ -57,11 +85,16 @@ static void WireEngines() {
     // Som aqui (nao no PomodoroState::IDLE generico) porque Stop() TAMBEM
     // levava pra IDLE -- nao queremos tocar "acabou a pausa" quando a
     // crianca so cancelou o ciclo. O novo foco que comeca em seguida
-    // (PomodoroEngine::Tick()) e quem encadeia o proximo ciclo sozinho.
+    // (PomodoroEngine::Tick()) e quem encadeia o proximo ciclo sozinho --
+    // por isso a IA nao deve convidar a criança a "iniciar o proximo
+    // ciclo" ao ouvir esse evento (diferente do que a doc original
+    // sugeria pra Knowledge Base): ele ja comecou sozinho.
     pomo.SetOnBreakCompleted([&tama]() {
         tama.OnBreakRespected();
         Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);  // 2 bipes: recomecou o foco
         Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);
+        NotifyIntEvent("pomodoro.break_completed", "break_duration_minutes",
+                       DeviceConfig::GetInstance().break_minutes());
     });
 
     // Bonus extra por voltar ao foco dentro da janela configurada em
