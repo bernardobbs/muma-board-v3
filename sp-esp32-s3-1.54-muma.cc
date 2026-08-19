@@ -28,6 +28,7 @@
 #include <ctime>
 #include <esp_netif.h>
 #include <esp_netif_sntp.h>
+#include <wifi_manager.h>
 #include <esp_heap_caps.h>
 
 // --- companheiro afetivo: features de familia (nao faziam parte do
@@ -414,9 +415,22 @@ private:
         return std::string(buf);
     }
 
-    // QR code com a URL da pagina dela ("/", sem senha) -- long press no
-    // boot_button_ mostra/esconde (ver InitializeButtons). Cobre a tela
-    // toda pra ficar grande o suficiente pra escanear de perto.
+    // QR code de tela cheia, mostra/esconde com long press no
+    // boot_button_ (ver InitializeButtons) -- SENSIVEL AO ESTADO:
+    //   - kDeviceStateWifiConfiguring (aparelho novo, ou perdeu a rede):
+    //     QR pra ENTRAR na rede Wi-Fi que o proprio aparelho cria
+    //     (formato padrao "WIFI:T:...;S:...;;", o celular reconhece
+    //     sozinho e oferece conectar). SSID vem de
+    //     WifiManager::GetApSsid() (biblioteca externa esp-wifi-connect,
+    //     nao vendored neste repo -- conferido o header/README reais no
+    //     GitHub antes de escrever isto: WifiManagerConfig nao tem CAMPO
+    //     de senha nenhum, e o README nao menciona senha em nenhum
+    //     momento do fluxo de conexao -- a rede de configuracao e
+    //     ABERTA, por isso "T:nopass", sem campo "P:").
+    //   - resto do tempo (rede normal, ja conectado): QR com a URL da
+    //     pagina dela ("/", sem senha), como antes.
+    // Cobre a tela toda pra ficar grande o suficiente pra escanear de
+    // perto.
     //
     // Desenhado na mao com mumaqr_* + lv_canvas, NAO com o widget
     // lv_qrcode da LVGL -- ver comentario no topo de mumaqr.h pro
@@ -430,15 +444,25 @@ private:
             lv_obj_add_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN);
             return;
         }
-        std::string ip = GetDeviceIpAddress();
-        if (ip.empty()) return;  // sem rede ainda -- nada pra mostrar
-        std::string url = "http://" + ip + "/";
+
+        std::string payload, label;
+        if (Application::GetInstance().GetDeviceState() == kDeviceStateWifiConfiguring) {
+            std::string ssid = WifiManager::GetInstance().GetApSsid();
+            if (ssid.empty()) return;  // config ainda nao subiu de vez -- nada pra mostrar
+            payload = "WIFI:T:nopass;S:" + ssid + ";;";
+            label = ssid;
+        } else {
+            std::string ip = GetDeviceIpAddress();
+            if (ip.empty()) return;  // sem rede ainda -- nada pra mostrar
+            payload = "http://" + ip + "/";
+            label = payload;
+        }
 
         uint8_t qr_tmp[mumaqr_BUFFER_LEN_FOR_VERSION(10)];
         uint8_t qr_buf[mumaqr_BUFFER_LEN_FOR_VERSION(10)];
-        bool encoded = mumaqr_encodeText(url.c_str(), qr_tmp, qr_buf, mumaqr_Ecc_LOW,
+        bool encoded = mumaqr_encodeText(payload.c_str(), qr_tmp, qr_buf, mumaqr_Ecc_LOW,
                                           1, 10, mumaqr_Mask_AUTO, true);
-        if (!encoded) return;  // URL longa demais pra versao 10 -- nao deveria acontecer com um IP
+        if (!encoded) return;  // texto longo demais pra versao 10 -- nao deveria acontecer
         int modules = mumaqr_getSize(qr_buf);
         int scale = kQrCanvasMax / modules;
         if (scale < 1) scale = 1;
@@ -492,7 +516,7 @@ private:
                 }
             }
         }
-        lv_label_set_text(qr_label_, url.c_str());
+        lv_label_set_text(qr_label_, label.c_str());
         lv_obj_clear_flag(qr_overlay_, LV_OBJ_FLAG_HIDDEN);
     }
 

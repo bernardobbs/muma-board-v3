@@ -144,6 +144,27 @@ merge upstream do fork conflitar com essas mudanças):
   do mesmo gerador terceirizado colidindo no link. Renomear todos os
   identificadores pra `mumaqr_*` evita esse conflito de vez, sem
   depender de nenhuma opção de Kconfig. Ver `README.md` seção 7.
+- **Mesmo QR code, agora sensível ao estado -- também serve pra entrar
+  no Wi-Fi**. Resolve o item §15.3 da proposta "NUMA v3" (que a própria
+  auditoria do documento já tinha corrigido: "O Numa já possui
+  infraestrutura própria de QR Code" da v2 não era verdade -- só existia
+  o QR de achar a página). `ToggleQrCode()` agora checa
+  `Application::GetDeviceState()`: em `kDeviceStateWifiConfiguring`
+  (aparelho novo, ou perdeu a rede -- ver `WifiBoard`/`esp-wifi-connect`,
+  biblioteca externa, não vendored), mostra um QR no formato padrão de
+  Wi-Fi (`WIFI:T:nopass;S:<ssid>;;`, que o celular reconhece sozinho e
+  oferece conectar) com o SSID vindo de `WifiManager::GetApSsid()`; no
+  resto do tempo, continua mostrando o QR da página dela, como antes.
+  **`T:nopass` (sem senha) confirmado lendo o header/README reais do
+  componente no GitHub antes de escrever isto** (não dava pra supor):
+  `WifiManagerConfig` não tem nenhum campo de senha pra AP, e o README
+  não menciona senha em nenhum momento do fluxo -- a rede de
+  configuração é aberta de propósito (não faria sentido exigir senha
+  pra configurar a senha). Não há getter público pra senha de AP no
+  componente -- se um dia ele passar a ter senha, isso quebra
+  silenciosamente (o `WIFI:T:nopass` ficaria errado); não tem como
+  `static_assert` isso, só confirmar de vez em quando se o componente
+  mudou.
 - **Selo de estágio**: `UpdateStageBadge()` mostra `Tamagotchi::StageName()`
   ("Ovo"/"Filhote"/"Jovem"/"Forte") como texto puro no canto inferior
   direito (`LV_ALIGN_BOTTOM_RIGHT`, também livre). Texto, não emoji --
