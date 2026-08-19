@@ -308,6 +308,37 @@ merge upstream do fork conflitar com essas mudanças):
   não como fala do usuário) **não foi tocado** -- fora do escopo deste
   repo, ver `ATUALIZACAO_NUMA.md` seção 4.
 
+## Decisões de arquitetura -- proposta "NUMA v3" (Fase 2.5)
+
+As 3 decisões que a própria `ATUALIZACAO_NUMA.md` (§17) listava como
+bloqueio antes de qualquer Fase 3 em diante -- **decididas**:
+
+1. **Perfil único por aparelho, mantido.** Não reverte pra
+   multi-perfil-por-device. Um Numa continua sendo de uma criança só.
+   Isso torna as seções 6/7 do documento (Voice Identification,
+   `UserProfile`, Primary/Authorized Users) **fora de escopo** -- não
+   fazem sentido no modelo atual.
+2. **Game Engine se soma ao Tamagotchi, não substitui.** O bichinho
+   continua sendo "o bichinho" (pontos/evolução); o Game Engine, quando
+   construído, é uma camada separada ("as aventuras"), com recompensas
+   visualmente distintas (ver §10.4 do documento) pra não confundir a
+   criança.
+3. **Tudo fica na placa.** Nenhuma camada nova (Game/Regulation/
+   Transition/Safety Engine) é promovida pro núcleo compartilhado do
+   fork -- continua tudo dentro de
+   `main/boards/spotpear/sp-esp32-s3-1.54-muma/`, mesmo padrão de hoje.
+
+**Sobreposição encontrada, ainda não resolvida**: o "Regulation Engine"
+proposto (§11, estados `NORMAL/AMARELO/VERMELHO/RECUPERACAO`) descreve
+quase exatamente o `OverloadSemaphore` que **já existe** neste repo
+(`semaphore_tool.h`/`.cc`, estados `VERDE/AMARELO/VERMELHO`, já com
+tools de voz, endpoints web e notificação ntfy) -- a diferença real é
+só o estado `RECUPERACAO`, que não existe hoje. Antes de construir um
+"Regulation Engine" do zero, faz mais sentido **estender** o
+`OverloadSemaphore` existente com esse estado a mais do que duplicar o
+sistema inteiro. Mesma lógica pro "Transition Engine" (§12): o aviso de
+`BREAK_WARNING` no pomodoro já cobre parte do que essa seção descreve.
+
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 
 Achado testando em hardware real: o `file(GLOB boards/${BOARD_DIR}/*.cc)`
