@@ -40,6 +40,7 @@
 #include "semaphore_tool.h"
 #include "alarm_tool.h"
 #include "breathing_tool.h"
+#include "game_tool.h"
 #include "mcp_tools.h"
 #include "config_server.h"
 #include "pet_emoji_collection.h"
@@ -708,6 +709,7 @@ private:
         Tamagotchi::GetInstance().Initialize();
         RoutineEngine::GetInstance().Initialize();
         AlarmEngine::GetInstance().Initialize();
+        GameEngine::GetInstance().Initialize();  // aventuras -- camada separada do Tamagotchi
 
         // Alarme: tela cheia + som ao disparar, som repetido enquanto
         // toca (self.alarm.dismiss ou o boot_button_ desligam, ver

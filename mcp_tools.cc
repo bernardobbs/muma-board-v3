@@ -8,6 +8,7 @@
 #include "semaphore_tool.h"
 #include "alarm_tool.h"
 #include "breathing_tool.h"
+#include "game_tool.h"
 #include "application.h"
 #include "assets/lang_config.h"
 
@@ -253,6 +254,60 @@ void RegisterAll() {
 
     mcp.AddTool("self.breathing.stop", "Para o exercicio de respiracao guiada",
         PropertyList(), [&breathing](const PropertyList&) -> ReturnValue { breathing.Stop(); return true; });
+
+    // ---------------- aventuras (Game Engine) ----------------
+    // Camada separada do bichinho (Tamagotchi) -- decisao tomada: soma,
+    // nao substitui. O firmware guarda o estado real (capitulo,
+    // estrelas, personagens, missao); a IA NUNCA deve inventar
+    // progresso sozinha -- toda mudanca de estado passa por uma destas
+    // tools, e self.game.status sempre devolve o que de fato esta
+    // salvo.
+    auto& game = GameEngine::GetInstance();
+    mcp.AddTool("self.game.start",
+        "Comeca uma aventura nova (zera capitulo, estrelas, personagens e missao -- "
+        "mesmo se ja tiver uma aventura em andamento)",
+        PropertyList({ Property("game_id", kPropertyTypeString) }),
+        [&game](const PropertyList& p) -> ReturnValue {
+            game.Start(p["game_id"].value<std::string>());
+            return game.StatusJson();
+        });
+
+    mcp.AddTool("self.game.status", "Consulta o estado real da aventura em andamento",
+        PropertyList(), [&game](const PropertyList&) -> ReturnValue { return game.StatusJson(); });
+
+    mcp.AddTool("self.game.choice",
+        "Registra a escolha que ela fez na aventura (o firmware so guarda, quem decide "
+        "a consequencia narrativa e a IA)",
+        PropertyList({ Property("choice", kPropertyTypeString) }),
+        [&game](const PropertyList& p) -> ReturnValue {
+            game.SetChoice(p["choice"].value<std::string>());
+            return game.StatusJson();
+        });
+
+    mcp.AddTool("self.game.reward",
+        "Da uma recompensa: estrelas (numero a somar, pode ser 0) e/ou um personagem/item "
+        "novo (nome livre, ex.: 'coelho', 'chave dourada' -- deixe vazio se nao ganhou nenhum)",
+        PropertyList({
+            Property("stars", kPropertyTypeInteger, 0, 0, 999),
+            Property("item", kPropertyTypeString, std::string("")),
+        }),
+        [&game](const PropertyList& p) -> ReturnValue {
+            game.AddReward(p["stars"].value<int>(), p["item"].value<std::string>());
+            return game.StatusJson();
+        });
+
+    mcp.AddTool("self.game.level",
+        "Avanca pro proximo capitulo da aventura, com a missao nova (deixe vazio pra "
+        "manter a missao atual)",
+        PropertyList({ Property("mission", kPropertyTypeString, std::string("")) }),
+        [&game](const PropertyList& p) -> ReturnValue {
+            game.AdvanceChapter(p["mission"].value<std::string>());
+            return game.StatusJson();
+        });
+
+    mcp.AddTool("self.game.end",
+        "Encerra a aventura atual (o progresso fica salvo, so para de estar 'em andamento')",
+        PropertyList(), [&game](const PropertyList&) -> ReturnValue { game.End(); return true; });
 
     ESP_LOGI(TAG, "Ferramentas MCP registradas para %s",
              ChildProfile::GetInstance().name().c_str());

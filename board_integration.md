@@ -349,6 +349,32 @@ sistema inteiro. Mesma lógica pro "Transition Engine" (§12): o aviso de
   `"recuperacao"` (`self.semaphore.set_level` e `POST /api/semaphore/set`).
   Botão novo em `/` (🔵 Melhor) -- o resto do JS (`SEM_BTN`) já era
   genérico, só precisou de uma entrada a mais no mapa.
+- **Game Engine (aventuras) -- arquivo novo, `game_tool.h`/`.cc`**.
+  Decisão tomada: soma ao Tamagotchi, não substitui -- os dois vivem
+  lado a lado, sem nenhuma referência cruzada. "Estrelas" (moeda do
+  Game Engine) são inteiramente separadas dos pontos de evolução do
+  bichinho, de propósito (pedido explícito: não confundir a criança com
+  dois sistemas de recompensa parecidos). `GameEngine` guarda o estado
+  real (`active`, `game_id`, `capítulo`, `estrelas`, `personagens`,
+  `missão`, `última escolha`) no NVS, mesmo padrão JSON-em-string que
+  `AlarmEngine`/`RoutineEngine` já usavam pra listas.
+
+  6 tools MCP (`self.game.*`): `start` (zera tudo, começa aventura
+  nova), `status` (estado real, pra IA nunca inventar progresso),
+  `choice` (só registra, quem decide a consequência narrativa é a IA),
+  `reward` (estrelas + item/personagem, os dois opcionais numa chamada
+  só), `level` (avança capítulo, com missão nova opcional), `end`
+  (encerra sem apagar o progresso).
+
+  **Simplificação em relação à proposta original**: a doc listava
+  `self.game.save`/`self.game.load` como tools separadas -- removidas
+  daqui porque nenhum outro sistema deste projeto (Tamagotchi, rotina,
+  alarmes, semáforo) tem um passo de "salvar" manual -- tudo já
+  persiste sozinho a cada mutação, e manter essa mesma convenção evita
+  um jeito diferente de fazer a mesma coisa só pro Game Engine.
+
+  **Arquivo `.cc` novo -- precisa de `idf.py reconfigure` antes do
+  próximo build** (ver seção abaixo).
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 
