@@ -165,6 +165,24 @@ merge upstream do fork conflitar com essas mudanças):
   silenciosamente (o `WIFI:T:nopass` ficaria errado); não tem como
   `static_assert` isso, só confirmar de vez em quando se o componente
   mudou.
+- **Reentrada manual no modo Wi-Fi -- gatilho físico que faltava
+  (§15.10)**. `EnterWifiConfigMode()` (`WifiBoard`, classe base) já
+  existia e já era seguro chamar a partir de idle/listening/speaking
+  (reseta o protocolo, espera 1s, só depois entra em modo config -- lido
+  direto em `wifi_board.cc`) -- só não tinha nenhum gesto físico ligado
+  a ela fora do boot. Agora **triplo clique** no `boot_button_` chama
+  ela a qualquer momento (clique simples e toque longo já tinham outro
+  significado). Deixa trocar de rede sem apagar o resto da configuração
+  do aparelho.
+
+  **Resto do §15 (captive portal, fallback `192.168.4.1`, preservar
+  credenciais até validar a nova, voltar sozinho ao normal) -- CONFIRMADO
+  que já vem pronto no `esp-wifi-connect`**, lendo o README real do
+  componente (não vendored neste repo, então não dava pra grep): o fluxo
+  descrito lá já é exatamente esse -- conecta no AP, abre
+  `http://192.168.4.1`, portal mostra redes disponíveis, credenciais só
+  são salvas depois de preenchidas, sai da configuração sem reiniciar. Nada disso
+  precisou ser construído.
 - **Selo de estágio**: `UpdateStageBadge()` mostra `Tamagotchi::StageName()`
   ("Ovo"/"Filhote"/"Jovem"/"Forte") como texto puro no canto inferior
   direito (`LV_ALIGN_BOTTOM_RIGHT`, também livre). Texto, não emoji --

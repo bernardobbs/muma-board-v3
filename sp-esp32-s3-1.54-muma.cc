@@ -714,6 +714,23 @@ private:
             }
             ToggleQrCode();
         });
+        // Reentrada manual no modo de configuracao de Wi-Fi (pedido
+        // explicito da proposta "NUMA v3", secao 15.10) -- pra trocar de
+        // rede sem apagar a configuracao inteira do aparelho. So faltava
+        // o gatilho fisico: EnterWifiConfigMode() (WifiBoard, classe
+        // base) ja trata com seguranca ser chamado a partir de
+        // idle/listening/speaking (reseta o protocolo, espera 1s, so
+        // depois entra em modo config -- ver wifi_board.cc). Triplo
+        // clique porque clique simples e toque longo ja tem outro
+        // significado -- gesto deliberado, dificil de disparar sem
+        // querer.
+        boot_button_.OnMultipleClick([this]() {
+            if (AlarmEngine::GetInstance().firing()) {
+                AlarmEngine::GetInstance().Dismiss();
+                return;
+            }
+            EnterWifiConfigMode();
+        }, 3);
     }
 
     // --- companheiro afetivo -------------------------------------------
