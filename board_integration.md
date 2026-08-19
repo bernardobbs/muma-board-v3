@@ -414,6 +414,28 @@ sistema inteiro. Mesma lógica pro "Transition Engine" (§12): o aviso de
 
   **Arquivo `.cc` novo -- precisa de `idf.py reconfigure` antes do
   próximo build** (ver seção abaixo).
+- **GIFs do bichinho recompactados -- paleta de cores menor**. A
+  partição do app (`ota_0`) chegou a 97% cheia (log real de build:
+  "0x20850 bytes (3%) free"). Os 60 GIFs (`pet_gifs/`) eram de longe o
+  maior consumidor (1.1MB, contra 108KB do `old_alarm.ogg`) -- testado
+  em hardware nenhum, só comparação visual lado a lado antes de aplicar:
+  reduzir a paleta por frame de 255 pra 48 cores não muda nada visível
+  nessa arte de vetor geométrico (poucas cores distintas pra começar),
+  e economiza **26% do total** (922KB -> 684KB, ~238KB liberados) sem
+  gerar nada novo, sem depender de Colab, sem tocar em nenhuma
+  partição. Aplicado nos 60 arquivos (não só os 27 novos de
+  Gato/Lobo -- os 33 antigos de 64px também ganharam o mesmo tratamento,
+  de graça).
+
+  **Isso é só aliviar sintoma, não resolve a causa** -- a causa é como
+  `partitions/v2/16m.csv` divide os 16MB reais do chip (`ota_0`/`ota_1`
+  ~4MB cada, `assets` 8MB quase vazia). Opção discutida mas **adiada,
+  aguardando decisão**: eliminar a duplicação `ota_1` (usada só pra
+  rollback automático de OTA por Wi-Fi -- este projeto até agora só foi
+  atualizado por `idf.py flash` via USB, nunca por OTA remoto) e dar
+  esse espaço pra `ota_0`, dobrando o espaço útil de ~4MB pra ~8MB de
+  uma vez. Não aplicado ainda -- depende de decidir se OTA remoto entra
+  nos planos.
 
 ## Arquivo `.cc`/`.h` novo -- precisa de `idf.py reconfigure`
 
