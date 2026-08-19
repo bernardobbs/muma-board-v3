@@ -75,7 +75,7 @@ void PomodoroEngine::Start() {
 }
 
 void PomodoroEngine::Pause() {
-    if (state_ != PomodoroState::STUDY && state_ != PomodoroState::WARNING) return;
+    if (state_ != PomodoroState::STUDY) return;
     int64_t elapsed = esp_timer_get_time() - phase_start_us_;
     paused_remaining_us_ = phase_duration_us_ - elapsed;
     if (paused_remaining_us_ < 0) paused_remaining_us_ = 0;
@@ -104,20 +104,21 @@ void PomodoroEngine::Tick() {
     int64_t remaining = phase_duration_us_ - elapsed;
     if (remaining < 0) remaining = 0;
 
-    // Aviso previo -- nunca cortar seco (regra vale pra qualquer crianca)
-    if (state_ == PomodoroState::STUDY && !warning_fired_ &&
+    // Aviso previo antes do fim da PAUSA -- decisao explicita: SEM aviso
+    // antes do fim do foco (so essa ponta importava).
+    if (state_ == PomodoroState::BREAK && !warning_fired_ &&
         remaining <= (int64_t)warning_seconds_ * 1000000) {
         warning_fired_ = true;
-        state_ = PomodoroState::WARNING;
+        state_ = PomodoroState::BREAK_WARNING;
         if (on_phase_changed_) on_phase_changed_(state_);
     }
 
     if (on_tick_) on_tick_((int)(remaining / 1000000));
 
     if (remaining == 0) {
-        if (state_ == PomodoroState::STUDY || state_ == PomodoroState::WARNING) {
+        if (state_ == PomodoroState::STUDY) {
             EnterPhase(PomodoroState::BREAK, break_seconds_);
-        } else if (state_ == PomodoroState::BREAK) {
+        } else if (state_ == PomodoroState::BREAK || state_ == PomodoroState::BREAK_WARNING) {
             // Pausa cumprida ate o fim (Stop() nao passa por aqui, entao
             // nunca aciona isso -- interromper nao e "cumprir a pausa").
             // Antes ia pra IDLE e esperava a crianca mandar "comeca" de
@@ -141,8 +142,8 @@ std::string PomodoroEngine::StateName() const {
     switch (state_) {
         case PomodoroState::IDLE:    return "parado";
         case PomodoroState::STUDY:   return "focando";
-        case PomodoroState::WARNING: return "quase la";
         case PomodoroState::BREAK:   return "pausa";
+        case PomodoroState::BREAK_WARNING: return "pausa quase acabando";
         case PomodoroState::PAUSED:  return "pausado";
     }
     return "?";

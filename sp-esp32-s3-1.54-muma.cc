@@ -344,8 +344,10 @@ private:
         // "Foco"/"Pausa" junto do numero -- sem isso a unica pista de
         // troca de fase era o som (ver mcp_tools.cc), e antes nem isso
         // (feedback real: "nao avisou que passou pra pausa").
+        auto pomo_state = PomodoroEngine::GetInstance().state();
         const char* phase_word =
-            (PomodoroEngine::GetInstance().state() == PomodoroState::BREAK) ? "Pausa" : "Foco";
+            (pomo_state == PomodoroState::BREAK || pomo_state == PomodoroState::BREAK_WARNING)
+                ? "Pausa" : "Foco";
         // buf[40], generoso: "Pausa\n" (6) + "%d:%02d" pior caso teorico
         // pro GCC (-Werror=format-truncation) mais margem.
         char buf[40];

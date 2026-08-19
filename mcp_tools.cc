@@ -51,27 +51,22 @@ static void WireEngines() {
     // o que ja esta tocando), entao chamar duas vezes seguidas toca as
     // duas batidas em sequencia, sem cortar uma na outra.
     // Notificacoes MCP pro servidor/IA reagirem por voz (pedido na
-    // especificacao "NUMA v3" -- ver ATUALIZACAO_NUMA.md). Nomes
-    // ajustados pro que o codigo REALMENTE faz, nao pro que o documento
-    // descrevia: o estado WARNING so dispara antes do fim do FOCO (ver
-    // Tick(), condicao "state_ == PomodoroState::STUDY"), nunca antes do
-    // fim da pausa -- a doc chamava isso de "break_warning" mas citava
-    // esse mesmo trecho de codigo do foco, uma inconsistencia interna
-    // dela. Chamado de "focus_warning" aqui pra nao enganar quem for
-    // configurar a Knowledge Base do servidor com base no nome.
+    // especificacao "NUMA v3" -- ver ATUALIZACAO_NUMA.md). Decisao
+    // explicita: aviso previo SO antes do fim da PAUSA
+    // (pomodoro.break_warning) -- sem aviso antes do fim do foco.
     pomo.SetOnPhaseChanged([&tama](PomodoroState state) {
         switch (state) {
             case PomodoroState::STUDY:   tama.SetMood(TamaMood::FOCADO); break;
-            case PomodoroState::WARNING:
-                tama.SetMood(TamaMood::AVISO);
-                NotifyIntEvent("pomodoro.focus_warning", "remaining_seconds",
-                               DeviceConfig::GetInstance().warning_seconds());
-                break;
             case PomodoroState::BREAK:
                 tama.OnPomodoroCompleted();   // +1 ponto por completar o foco
                 Application::GetInstance().PlaySound(Lang::Sounds::OGG_OLD_ALARM);  // 1 bipe: comecou a pausa
                 NotifyIntEvent("pomodoro.completed", "duration_minutes",
                                DeviceConfig::GetInstance().study_minutes());
+                break;
+            case PomodoroState::BREAK_WARNING:
+                tama.SetMood(TamaMood::AVISO);
+                NotifyIntEvent("pomodoro.break_warning", "remaining_seconds",
+                               DeviceConfig::GetInstance().warning_seconds());
                 break;
             case PomodoroState::IDLE:
                 tama.SetMood(TamaMood::NEUTRO);

@@ -3,7 +3,9 @@
 #include <functional>
 #include <string>
 
-enum class PomodoroState { IDLE, STUDY, WARNING, BREAK, PAUSED };
+// BREAK_WARNING = faltando pouco pro fim da PAUSA -- so essa ponta tem
+// aviso previo (decisao explicita: sem aviso antes do fim do FOCO).
+enum class PomodoroState { IDLE, STUDY, BREAK, BREAK_WARNING, PAUSED };
 
 class PomodoroEngine {
 public:

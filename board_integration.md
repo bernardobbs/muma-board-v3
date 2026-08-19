@@ -283,23 +283,26 @@ merge upstream do fork conflitar com essas mudanças):
   pelo `SendMcpMessage()` já existente por dentro (transporte
   reaproveitado, só a API pública é nova).
 
-  Ligada em `mcp_tools.cc` (`WireEngines()`) nos 3 pontos que a
-  especificação pedia, usando os callbacks que o `PomodoroEngine` já
-  tinha (`on_phase_changed_`/`on_break_completed_`) -- nenhuma lógica de
-  estado nova, só notificação a mais nos handlers existentes:
+  Ligada em `mcp_tools.cc` (`WireEngines()`), usando os callbacks que o
+  `PomodoroEngine` já tinha (`on_phase_changed_`/`on_break_completed_`):
   - `pomodoro.completed` (`duration_minutes`) -- fim do foco.
-  - `pomodoro.focus_warning` (`remaining_seconds`) -- **nome corrigido**
-    em relação à proposta original, que chamava isso de
-    `pomodoro.break_warning` mas citava o trecho de código do estado
-    `WARNING`, que só dispara antes do fim do **foco**
-    (`state_ == PomodoroState::STUDY` em `pomodoro_tool.cc`), nunca da
-    pausa -- hoje não existe aviso nenhum perto do fim da pausa.
   - `pomodoro.break_completed` (`break_duration_minutes`) -- fim da
     pausa. **Divergência da proposta original**: a especificação sugeria
     que a IA devia "convidar o usuário a iniciar o próximo ciclo" nesse
     evento -- não faz mais sentido desde que o pomodoro passou a
     encadear os ciclos sozinho (ver bullet da sineta acima); o texto da
     Knowledge Base do servidor precisa refletir isso.
+  - `pomodoro.break_warning` (`remaining_seconds`) -- **decisão
+    explícita, revisada depois da primeira implementação**: só existe
+    aviso prévio antes do fim da PAUSA, nunca antes do fim do foco (a
+    primeira versão desta feature tinha os dois -- `pomodoro.focus_warning`
+    incluído -- removida a pedido). Isso exigiu um estado novo em
+    `PomodoroState` (`pomodoro_tool.h`): o antigo `WARNING` genérico
+    (que só cobria o fim do foco) foi **removido**, substituído por
+    `BREAK_WARNING` (só existe pro lado da pausa). Sem essa separação, o
+    texto "Foco"/"Pausa" na tela (`UpdatePomodoroLabel`) e a notificação
+    MCP não teriam como saber qual das duas fases o aviso genérico
+    estava anunciando.
 
   O lado do servidor (tratar a notificação como evento do dispositivo,
   não como fala do usuário) **não foi tocado** -- fora do escopo deste
