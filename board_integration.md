@@ -464,3 +464,27 @@ aparelho funciona com uma faixa etária neutra (10-12 anos) como
 default -- não trava nem erra, só usa valores genéricos até vocês
 configurarem. A saudação pelo nome na página dela (`/`) só aparece
 depois que o nome for salvo.
+
+## Atualização via OTA (o que já existe vs. o que falta)
+
+Investigado em resposta à pergunta "e atualização via ota", conferindo
+o código real (`main/ota.cc`, `main/application.cc`) em vez de supor:
+
+- **Já existe e funciona, sem eu ter tocado**: `Ota::CheckVersion()`
+  roda a cada boot (`Application::CheckNewVersion()`), consulta uma
+  URL e espera um JSON `{"firmware":{"version","url"}}`; se a versão
+  for mais nova, `Application::UpgradeFirmware()` baixa e grava o
+  `.bin` de verdade via `esp_https_ota`. O mecanismo cliente-servidor
+  já está pronto, é herdado do xiaozhi-esp32 original.
+- **O que falta**: a URL padrão (`CONFIG_OTA_URL` em
+  `main/Kconfig.projbuild`) é `https://api.tenclass.net/xiaozhi/ota/`
+  -- o servidor oficial do xiaozhi, não algo nosso. Pra usar OTA de
+  verdade seria preciso hospedar o `.bin` do Numa em algum lugar +
+  servir esse JSON, e trocar a URL (`Settings("wifi").ota_url` ou o
+  Kconfig).
+- **Decisão sobre `ota_1`** (ver seção da recompactação dos GIFs acima):
+  perguntado se vale eliminar o slot `ota_1` pra ganhar ~4MB, já que
+  ele só serve pro rollback automático de um OTA sem fio. Resposta:
+  **deixar como está por enquanto** -- nem monta infraestrutura de OTA
+  nem mexe nas partições. Registrando aqui só pra não perder o
+  raciocínio se a pergunta voltar depois.
