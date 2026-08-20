@@ -610,7 +610,80 @@ private:
             logged_first_tick = true;
         }
         auto& board = (Spotpear_esp32_s3_lcd_1_54&)Board::GetInstance();
-        if (Application::GetInstance().GetDeviceState() != kDeviceStateIdle) return;
+        auto state = Application::GetInstance().GetDeviceState();
+
+        // DEADLOCK real encontrado em hardware (aparelho ficou dias
+        // desligado, RTC voltou pro epoch padrao): o NTP disparava aqui
+        // dentro do bloco de "idle", mas "idle" so acontece DEPOIS que
+        // Ota::CheckVersion termina a ativacao com o backend (HTTPS pro
+        // tenclass.net) -- e esse HTTPS falha na validacao do
+        // certificado (mbedtls -0x2700 = MBEDTLS_ERR_X509_CERT_VERIFY_
+        // FAILED) se o relogio ainda estiver no epoch padrao. Ou seja: o
+        // NTP esperando "idle", e "idle" esperando o NTP ja ter
+        // corrigido o relogio. Sem essa trava, o retry do CheckVersion
+        // (10x com backoff exponencial) so desiste depois de quase 3h,
+        // tocando alerta de erro a cada tentativa. Fix: dispara o NTP
+        // assim que a rede conecta e a ativacao COMECA (sai de
+        // starting/wifi_configuring), nao quando ela TERMINA -- ainda
+        // sobra ~1s+ antes do OTA tentar o HTTPS, e mesmo que a primeira
+        // tentativa do OTA falhe, o NTP ja respondeu a tempo da segunda
+        // (10s depois) ter o relogio certo.
+        static bool sntp_started = false;
+        if (!sntp_started && state != kDeviceStateUnknown && state != kDeviceStateStarting &&
+            state != kDeviceStateWifiConfiguring) {
+            sntp_started = true;
+
+            // Horario automatico via NTP -- CONFIRMADO o bug que o
+            // diagnostico anterior so suspeitava: Ota::CheckVersion (main/
+            // ota.cc) faz "ts += timezone_offset * 60 * 1000" ANTES de
+            // settimeofday(), ou seja, o epoch que o servidor manda ja vem
+            // deslocado pelo fuso. Nossa propria TZ (DeviceConfig::
+            // ApplyTimezone, setenv+tzset) desloca de novo em localtime_r --
+            // resultado: hora local errada em dobro (foi assim que a tela
+            // mostrou horario visivelmente errado num teste real).
+            // NTP devolve epoch UTC de verdade (sem nenhum fuso embutido),
+            // entao aplicar nossa TZ por cima fica certo, uma vez so.
+            // esp_netif_sntp (nao SNTP "cru") porque já integra com o
+            // esp_netif/lwip que o resto do wifi_board.h ja usa -- resync
+            // automatico e periodico por conta do proprio lwip (nao
+            // precisamos de timer nenhum pra isso), entao mesmo se o OTA
+            // rodar de novo mais tarde e escrever a hora errada por cima, o
+            // NTP corrige sozinho no proximo ciclo (a cada 1h por padrao).
+            esp_sntp_config_t sntp_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
+            // Log incondicional quando a resposta chega de verdade -- sem
+            // isso, "timer criado sem erro" e "NTP respondeu" ficariam
+            // indistinguiveis (mesma logica do log de network_check_timer_
+            // no construtor: nao supor que funcionou, confirmar).
+            //
+            // %lld pra time_t (64 bits) sai CORROMPIDO aqui -- confirmado em
+            // hardware real ("epoch UTC = ld", sem o numero) -- porque este
+            // projeto usa CONFIG_NEWLIB_NANO_FORMAT=y (sdkconfig.defaults,
+            // pra economizar flash) e o printf "nano" da newlib nao suporta
+            // bem formato de 64 bits. Loga a hora LOCAL ja formatada (usa
+            // %d/%02d, so inteiros de 32 bits, sem esse problema) em vez do
+            // epoch cru -- direto conferivel contra o relogio real, sem
+            // precisar converter nada.
+            sntp_config.sync_cb = [](struct timeval*) {
+                time_t now = time(nullptr);
+                struct tm ti;
+                localtime_r(&now, &ti);
+                ESP_LOGI(TAG, "SNTP respondeu: horario local agora = %04d-%02d-%02d %02d:%02d:%02d",
+                         ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday, ti.tm_hour, ti.tm_min, ti.tm_sec);
+            };
+            esp_err_t sntp_err = esp_netif_sntp_init(&sntp_config);
+            if (sntp_err == ESP_OK) sntp_err = esp_netif_sntp_start();
+            ESP_LOGI(TAG, "SNTP iniciado: %s", esp_err_to_name(sntp_err));
+
+            time_t now = time(nullptr);
+            struct tm ti;
+            localtime_r(&now, &ti);
+            char time_buf[32];
+            strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &ti);
+            ESP_LOGI(TAG, "Horario local calculado pelo aparelho (antes do NTP responder): %s",
+                     time_buf);
+        }
+
+        if (state != kDeviceStateIdle) return;
         ESP_LOGI(TAG, "CheckNetworkReady: estado idle detectado, subindo ConfigServer");
         ConfigServer::GetInstance().Start(FAMILY_ADMIN_PASSWORD);
         board.UpdateStageBadge();  // mostra o estagio ja salvo, sem esperar a proxima evolucao
@@ -629,55 +702,6 @@ private:
         // chamar SetEmotion la); aqui a tela ja existe, entao forca
         // mostrar o humor atual com a colecao certa direto no boot.
         board.GetDisplay()->SetEmotion(Tamagotchi::GetInstance().MoodName().c_str());
-
-        // Horario automatico via NTP -- CONFIRMADO o bug que o
-        // diagnostico anterior so suspeitava: Ota::CheckVersion (main/
-        // ota.cc) faz "ts += timezone_offset * 60 * 1000" ANTES de
-        // settimeofday(), ou seja, o epoch que o servidor manda ja vem
-        // deslocado pelo fuso. Nossa propria TZ (DeviceConfig::
-        // ApplyTimezone, setenv+tzset) desloca de novo em localtime_r --
-        // resultado: hora local errada em dobro (foi assim que a tela
-        // mostrou horario visivelmente errado num teste real).
-        // NTP devolve epoch UTC de verdade (sem nenhum fuso embutido),
-        // entao aplicar nossa TZ por cima fica certo, uma vez so.
-        // esp_netif_sntp (nao SNTP "cru") porque já integra com o
-        // esp_netif/lwip que o resto do wifi_board.h ja usa -- resync
-        // automatico e periodico por conta do proprio lwip (nao
-        // precisamos de timer nenhum pra isso), entao mesmo se o OTA
-        // rodar de novo mais tarde e escrever a hora errada por cima, o
-        // NTP corrige sozinho no proximo ciclo (a cada 1h por padrao).
-        esp_sntp_config_t sntp_config = ESP_NETIF_SNTP_DEFAULT_CONFIG("pool.ntp.org");
-        // Log incondicional quando a resposta chega de verdade -- sem
-        // isso, "timer criado sem erro" e "NTP respondeu" ficariam
-        // indistinguiveis (mesma logica do log de network_check_timer_
-        // no construtor: nao supor que funcionou, confirmar).
-        //
-        // %lld pra time_t (64 bits) sai CORROMPIDO aqui -- confirmado em
-        // hardware real ("epoch UTC = ld", sem o numero) -- porque este
-        // projeto usa CONFIG_NEWLIB_NANO_FORMAT=y (sdkconfig.defaults,
-        // pra economizar flash) e o printf "nano" da newlib nao suporta
-        // bem formato de 64 bits. Loga a hora LOCAL ja formatada (usa
-        // %d/%02d, so inteiros de 32 bits, sem esse problema) em vez do
-        // epoch cru -- direto conferivel contra o relogio real, sem
-        // precisar converter nada.
-        sntp_config.sync_cb = [](struct timeval*) {
-            time_t now = time(nullptr);
-            struct tm ti;
-            localtime_r(&now, &ti);
-            ESP_LOGI(TAG, "SNTP respondeu: horario local agora = %04d-%02d-%02d %02d:%02d:%02d",
-                     ti.tm_year + 1900, ti.tm_mon + 1, ti.tm_mday, ti.tm_hour, ti.tm_min, ti.tm_sec);
-        };
-        esp_err_t sntp_err = esp_netif_sntp_init(&sntp_config);
-        if (sntp_err == ESP_OK) sntp_err = esp_netif_sntp_start();
-        ESP_LOGI(TAG, "SNTP iniciado: %s", esp_err_to_name(sntp_err));
-
-        time_t now = time(nullptr);
-        struct tm ti;
-        localtime_r(&now, &ti);
-        char time_buf[32];
-        strftime(time_buf, sizeof(time_buf), "%Y-%m-%d %H:%M:%S", &ti);
-        ESP_LOGI(TAG, "Horario local calculado pelo aparelho (antes do NTP responder): %s",
-                 time_buf);
 
         esp_timer_stop(board.network_check_timer_);
     }

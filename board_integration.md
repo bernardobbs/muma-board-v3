@@ -478,13 +478,49 @@ o código real (`main/ota.cc`, `main/application.cc`) em vez de supor:
   já está pronto, é herdado do xiaozhi-esp32 original.
 - **O que falta**: a URL padrão (`CONFIG_OTA_URL` em
   `main/Kconfig.projbuild`) é `https://api.tenclass.net/xiaozhi/ota/`
-  -- o servidor oficial do xiaozhi, não algo nosso. Pra usar OTA de
-  verdade seria preciso hospedar o `.bin` do Numa em algum lugar +
-  servir esse JSON, e trocar a URL (`Settings("wifi").ota_url` ou o
-  Kconfig).
+  -- **correção**: eu tinha assumido aqui que era "o servidor oficial
+  do xiaozhi, não algo nosso" e portanto irrelevante. Errado --
+  confirmado com a família que esse É o backend real que já fez o chat
+  por voz funcionar antes. Ou seja, essa chamada não é só sobre
+  atualização de firmware: é a MESMA chamada que entrega a config de
+  MQTT/WebSocket que `InitializeProtocol()` usa pra decidir como
+  conversar com o backend de IA (`main/application.cc:502-509`). Não dá
+  pra simplesmente desligar essa checagem.
 - **Decisão sobre `ota_1`** (ver seção da recompactação dos GIFs acima):
   perguntado se vale eliminar o slot `ota_1` pra ganhar ~4MB, já que
   ele só serve pro rollback automático de um OTA sem fio. Resposta:
   **deixar como está por enquanto** -- nem monta infraestrutura de OTA
   nem mexe nas partições. Registrando aqui só pra não perder o
   raciocínio se a pergunta voltar depois.
+
+## Bug real: deadlock entre NTP e ativação (OTA/MQTT) no boot
+
+Achado analisando um log real de `idf.py monitor` depois de dias sem
+ligar os aparelhos. Sintoma: no boot, `Ota::CheckVersion()` falhava
+repetido contra `api.tenclass.net` com
+`mbedtls_ssl_handshake returned -0x2700` (`MBEDTLS_ERR_X509_CERT_
+VERIFY_FAILED`) e ficava tentando de novo com backoff exponencial
+(10s, 20s, 40s... até 10x, quase 3h no pior caso), tocando o som de
+alerta a cada tentativa -- o aparelho não fica pronto pra conversar
+enquanto isso não termina ou desiste.
+
+**Causa raiz**: circular. O NTP (`CheckNetworkReady()`, ver acima)
+só disparava depois que `Application::GetDeviceState()` chegasse em
+`kDeviceStateIdle`. Só que `idle` só acontece DEPOIS que a ativação
+com o backend (o próprio `CheckVersion()`) termina. E `CheckVersion()`
+só termina (com sucesso) se o certificado TLS validar -- o que exige
+um relógio correto, que só o NTP corrige. Resultado: NTP esperando
+`idle`, `idle` esperando o NTP já ter rodado. Isso ficava mascarado em
+testes anteriores porque o relógio interno (RTC/`esp_timer`) sobrevive
+a reboots mornos (sem perder energia) -- só ficou visível de verdade
+depois que os aparelhos passaram dias desligados de vez e o relógio
+voltou pro epoch padrão.
+
+**Fix** (só no board, não mexe em `main/ota.cc`/`main/application.cc`
+que são core): `CheckNetworkReady()` agora dispara o NTP assim que o
+estado sai de `starting`/`wifi_configuring` (ou seja, assim que a rede
+conecta e a ativação COMEÇA), não quando ela termina. Sobra pelo menos
+~1s antes do OTA tentar o HTTPS, e mesmo que a 1ª tentativa falhe, o
+NTP já respondeu a tempo da 2ª (10s depois) ter o relógio certo. O
+resto do polling (`ConfigServer::Start()`, selo de estágio, emoji)
+continua esperando `idle` normalmente, sem mudança.
