@@ -60,21 +60,10 @@
 // funciona sozinho com as chaves de humor padrao do xiaozhi.
 static void ApplyPetEmojiCollection(const std::string& species_id) {
     auto collection = CreatePetEmojiCollection(species_id);
-    // Log temporario de diagnostico: comparar essa chamada no BOOT
-    // (dentro do construtor) com a mesma chamada disparada AO VIVO por
-    // /api/pet/choose -- feedback real diz que so a segunda mostra o
-    // GIF certo na tela, entao precisamos ver se light/dark ja existem
-    // (nao-nulo) igualmente nos dois casos antes de arriscar outro fix.
-    ESP_LOGI(TAG, "ApplyPetEmojiCollection(%s): colecao=%s",
-             species_id.c_str(), collection ? "ok" : "NULA (especie sem GIF)");
     if (collection == nullptr) return;
     auto& theme_manager = LvglThemeManager::GetInstance();
-    auto* light = theme_manager.GetTheme("light");
-    auto* dark = theme_manager.GetTheme("dark");
-    ESP_LOGI(TAG, "ApplyPetEmojiCollection(%s): light=%p dark=%p", species_id.c_str(),
-             (void*)light, (void*)dark);
-    if (light) light->set_emoji_collection(collection);
-    if (dark) dark->set_emoji_collection(collection);
+    if (auto* light = theme_manager.GetTheme("light")) light->set_emoji_collection(collection);
+    if (auto* dark = theme_manager.GetTheme("dark")) dark->set_emoji_collection(collection);
 }
 
 class Cst816d : public I2cDevice {
@@ -712,16 +701,20 @@ private:
         // construtor (antes do SetupUI() existir, por isso nao dava pra
         // chamar SetEmotion la); aqui a tela ja existe, entao forca
         // mostrar o humor atual com a colecao certa direto no boot.
-        // Log temporario de diagnostico: feedback real ("só apareceu o
-        // gif do gato quando cliquei no gato na pagina") sugere que essa
-        // chamada, apesar de rodar, nao esta mostrando a colecao certa
-        // -- so a escolha AO VIVO via /api/pet/choose funciona. Log
-        // aqui pra confirmar especie+humor exatos nesse instante, antes
-        // de arriscar outro fix sem certeza (ja errei uma vez hoje com
-        // a hipotese do relogio).
-        ESP_LOGI(TAG, "Forcando emocao no boot: especie=%s humor=%s",
-                 Tamagotchi::GetInstance().species_id().c_str(),
-                 Tamagotchi::GetInstance().MoodName().c_str());
+        //
+        // CAUSA REAL confirmada com log de diagnostico (nao era o que a
+        // gente supunha): Assets::LvglStrategy::Apply() (core,
+        // main/assets.cc) roda no meio do boot ("Refreshing display
+        // theme..." no log) e, se o pacote de assets baixado tiver uma
+        // secao "emoji_collection", SOBRESCREVE a colecao dos temas
+        // light/dark com a generica -- isso acontece DEPOIS da nossa
+        // atribuicao do bichinho no construtor e ANTES desse
+        // SetEmotion() forcado aqui, entao a escolha da crianca era
+        // apagada silenciosamente antes da gente conseguir mostrar.
+        // A escolha AO VIVO pela pagina funciona porque roda bem depois
+        // desse ponto, sem mais nada pra sobrescrever. Fix: reaplicar a
+        // colecao bem aqui, logo antes do SetEmotion forcado.
+        ApplyPetEmojiCollection(Tamagotchi::GetInstance().species_id());
         board.GetDisplay()->SetEmotion(Tamagotchi::GetInstance().MoodName().c_str());
 
         esp_timer_stop(board.network_check_timer_);
