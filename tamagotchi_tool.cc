@@ -21,12 +21,14 @@ void Tamagotchi::Initialize() {
     // restringimos por faixa etaria: quem escolhe e a crianca, nao o
     // firmware, e gosto nao e coisa que se determine por idade.
     // Gato primeiro -- e o padrao de quem ainda nao escolheu
-    // (species_index_ cai em 0 quando nao ha nada salvo, ver abaixo) --
-    // e o Lobo logo depois, os dois com arte customizada de verdade
-    // hoje (ver pet_gifs/), na frente das especies que ainda usam o
-    // rosto generico padrao.
+    // (species_index_ cai em 0 quando nao ha nada salvo, ver abaixo).
+    // "lobo" virou "cachorro" -- decisao da familia, arte nova a
+    // caminho (gato/cachorro/unicornio na leva atual). Ate os GIFs de
+    // cachorro chegarem em pet_gifs/, CreatePetEmojiCollection("cachorro")
+    // devolve nullptr e o pacote generico padrao vale normalmente --
+    // nao trava, so nao mostra arte customizada ainda.
     catalog_ = {
-        {"gato","Gato","Nino"},         {"lobo","Lobo","Atlas"},
+        {"gato","Gato","Nino"},         {"cachorro","Cachorro","Atlas"},
         {"raposa","Raposa","Fox"},      {"dragao","Dragao","Draco"},
         {"unicornio","Unicornio","Lili"},{"coelha","Coelha","Lua"},
         {"panda","Panda","Pingo"},      {"pintinho","Pintinho","Bibi"},

@@ -8,9 +8,14 @@ aqui so precisa virar um array de bytes C, embutido num .cc normal
 (pego pelo file(GLOB) automatico da pasta do board -- ver README.md).
 
 Nome esperado: pet_gifs/<especie>_<humor>.gif
-  especie: lobo, raposa, gato, dragao, unicornio, coelha, panda, pintinho
-  humor:   neutral, thinking, surprised, funny, happy
-           (as mesmas chaves de Tamagotchi::MoodName())
+  especie: gato, cachorro, raposa, dragao, unicornio, coelha, panda, pintinho
+           ("lobo" foi renomeado pra "cachorro" no catalogo -- ver
+           tamagotchi_tool.cc)
+  humor:   qualquer chave do vocabulario padrao do xiaozhi (neutral,
+           happy, laughing, funny, sad, angry, crying, loving,
+           embarrassed, surprised, shocked, thinking, winking, cool,
+           relaxed, delicious, kissy, confident, sleepy, silly,
+           confused) -- nao precisa cobrir todas, so as que tiver arte
 
 Rode sempre que adicionar/trocar GIFs em pet_gifs/:
     python3 scripts/gen_pet_emoji_collection.py
