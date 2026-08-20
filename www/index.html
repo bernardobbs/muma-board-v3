@@ -52,6 +52,24 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
   </div>
 </div>
 
+<div class="card" id="semCard" style="display:none">
+  <h2>Semáforo</h2>
+  <p class="sub" style="margin:0 0 10px">Como você está se sentindo agora?</p>
+  <div class="btns">
+    <button id="semVerde">🟢 Verde</button>
+    <button id="semAmarelo">🟡 Amarelo</button>
+    <button id="semVermelho">🔴 Vermelho</button>
+    <button id="semRecuperacao">🔵 Melhor</button>
+  </div>
+  <div class="note" id="semPending" style="display:none;margin-top:12px">
+    Quer avisar seus pais sobre isso?
+    <div class="btns" style="margin-top:8px">
+      <button class="pri" id="semConfirm">Sim, avisar</button>
+      <button id="semCancel">Não, obrigado</button>
+    </div>
+  </div>
+</div>
+
 <div class="card">
   <h2>Pomodoro</h2>
   <div class="timer" id="timer">--:--</div>
@@ -100,24 +118,6 @@ button.save{width:100%;padding:12px;border:0;border-radius:10px;background:var(-
   <input type="range" id="vol" min="0" max="100" step="5">
   <button class="save" id="save">Salvar</button>
   <div class="ok" id="okMsg"></div>
-</div>
-
-<div class="card" id="semCard" style="display:none">
-  <h2>Semáforo</h2>
-  <p class="sub" style="margin:0 0 10px">Como você está se sentindo agora?</p>
-  <div class="btns">
-    <button id="semVerde">🟢 Verde</button>
-    <button id="semAmarelo">🟡 Amarelo</button>
-    <button id="semVermelho">🔴 Vermelho</button>
-    <button id="semRecuperacao">🔵 Melhor</button>
-  </div>
-  <div class="note" id="semPending" style="display:none;margin-top:12px">
-    Quer avisar seus pais sobre isso?
-    <div class="btns" style="margin-top:8px">
-      <button class="pri" id="semConfirm">Sim, avisar</button>
-      <button id="semCancel">Não, obrigado</button>
-    </div>
-  </div>
 </div>
 
 <div class="card">
