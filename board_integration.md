@@ -524,3 +524,23 @@ conecta e a ativação COMEÇA), não quando ela termina. Sobra pelo menos
 NTP já respondeu a tempo da 2ª (10s depois) ter o relógio certo. O
 resto do polling (`ConfigServer::Start()`, selo de estágio, emoji)
 continua esperando `idle` normalmente, sem mudança.
+
+**Importante -- esse fix NÃO resolve o erro de TLS que motivou a
+investigação.** Testado em hardware real: mesmo com o relógio já
+certo (confirmado no log, `SNTP respondeu` bem antes da 2ª tentativa),
+o erro `mbedtls_ssl_handshake returned -0x2700` continuou idêntico.
+Causa real, confirmada abrindo `https://api.tenclass.net/xiaozhi/ota/`
+num navegador (Chrome): `net::ERR_CERT_COMMON_NAME_INVALID` -- o
+servidor está devolvendo o certificado de `mqtt.tenclass.net` pra
+quem acessa `api.tenclass.net`. **Isso é um problema de configuração
+do lado do tenclass** (provavelmente o balanceador/proxy deles
+servindo o certificado errado), confirmado até fora do aparelho (o
+Windows da família também rejeitou a mesma conexão) -- não tem nada
+pra corrigir no firmware, na rede, ou em qualquer config local. O fix
+do NTP acima continua válido (corrige um deadlock real, separado), só
+não é a causa desse sintoma específico. Enquanto o tenclass não
+corrigir o certificado deles, o chat por voz fica fora do ar; o
+aparelho deve voltar sozinho a funcionar assim que eles corrigirem
+(retry automático ou próximo boot), sem precisar reflashear nada.
+Contato oficial pra reportar, se quiserem: xiaozhi.ai@tenclass.com
+(`.github/SUPPORT.md`).
