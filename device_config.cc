@@ -138,6 +138,11 @@ std::string DeviceConfig::ToJson() const {
     cJSON_AddNumberToObject(r, "min_break", kMinBreakMin);
     cJSON_AddNumberToObject(r, "max_break", kMaxBreakMin);
 
+    // A pagina dela usa isso pra decidir se mostra o card do semaforo --
+    // sem esse campo aqui (so existia em ToAdminJson), o card nunca
+    // aparecia, mesmo com a ferramenta ja ligada no perfil.
+    cJSON_AddBoolToObject(r, "regulacao_ativa", ChildProfile::GetInstance().regulation_tools_enabled());
+
     // Somente leitura na pagina dela: ela VE que o alerta existe e em que
     // nivel, mas nao muda. Transparencia, nao vigilancia.
     cJSON* a = cJSON_AddObjectToObject(r, "alerta_pais");
